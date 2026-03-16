@@ -1,0 +1,184 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --bg-base: #0d0e10;
+    --bg-elevated: #16181b;
+    --bg-elevated-soft: rgba(22, 24, 27, 0.78);
+    --surface-line: rgba(255, 255, 255, 0.09);
+    --surface-line-strong: rgba(255, 255, 255, 0.16);
+    --text-primary: #f3f4f6;
+    --text-muted: #a1a1aa;
+    --text-soft: #71717a;
+    --accent-metal: #d4d4d8;
+    --accent-warm: #b4a084;
+}
+
+html,
+body,
+#root {
+    min-height: 100%;
+}
+
+body {
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    background:
+        radial-gradient(950px 500px at 0% -12%, rgba(180, 160, 132, 0.12), transparent 62%),
+        radial-gradient(880px 420px at 100% -10%, rgba(120, 120, 130, 0.14), transparent 58%),
+        linear-gradient(180deg, #121315 0%, #0d0e10 46%, #090a0b 100%);
+    color: var(--text-primary);
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-display {
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    letter-spacing: 0.02em;
+}
+
+.bg-grid-lines {
+    background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+    background-size: 28px 28px;
+}
+
+.glass-panel {
+    background: var(--bg-elevated-soft);
+    border: 1px solid var(--surface-line);
+    backdrop-filter: blur(10px);
+}
+
+.site-hero-shade {
+    background:
+        linear-gradient(100deg, rgba(18, 19, 21, 0.86) 0%, rgba(18, 19, 21, 0.42) 48%, rgba(18, 19, 21, 0.95) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 40%);
+}
+
+.btn-primary-neutral {
+    background: linear-gradient(92deg, #cdc5b8 0%, #ae9d86 100%);
+    color: #111214;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+.btn-primary-neutral:hover {
+    background: linear-gradient(92deg, #ded8ce 0%, #bda98f 100%);
+}
+
+.btn-secondary-neutral {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--surface-line-strong);
+    color: #e5e7eb;
+}
+
+.btn-secondary-neutral:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.page-shell {
+    min-height: 100vh;
+    padding-top: 2.5rem;
+    padding-bottom: 2.5rem;
+    background:
+        radial-gradient(900px 420px at 88% -8%, rgba(212, 212, 216, 0.06), transparent 60%),
+        radial-gradient(820px 420px at 2% -6%, rgba(180, 160, 132, 0.08), transparent 62%);
+}
+
+.page-card {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(15, 16, 18, 0.72);
+    border-radius: 14px;
+}
+
+.section-title {
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #e4e4e7;
+}
+
+.kpi-chip {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 0.65rem 0.8rem;
+}
+
+.table-shell {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(10, 11, 12, 0.72);
+}
+
+.ambient-orb {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(40px);
+    pointer-events: none;
+}
+
+.ambient-orb-warm {
+    background: rgba(180, 160, 132, 0.2);
+}
+
+.ambient-orb-metal {
+    background: rgba(212, 212, 216, 0.14);
+}
+
+.content-section-title {
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 1.55rem;
+    line-height: 1;
+    color: #f4f4f5;
+}
+
+.subtle-divider {
+    height: 1px;
+    width: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.14) 50%, transparent 100%);
+}
+
+.soft-highlight-card {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.015) 100%);
+    border-radius: 14px;
+}
+
+@keyframes fade-up {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-up {
+    animation: fade-up 420ms ease-out both;
+}
+
+.animate-delay-1 {
+    animation-delay: 60ms;
+}
+
+.animate-delay-2 {
+    animation-delay: 120ms;
+}
+
+.animate-delay-3 {
+    animation-delay: 180ms;
+}
+
+@media (max-width: 640px) {
+    .bg-grid-lines {
+        background-size: 20px 20px;
+    }
+}
