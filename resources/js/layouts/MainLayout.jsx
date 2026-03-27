@@ -33,7 +33,7 @@ const MainLayout = ({ user, isAdmin, onLogout, children }) => {
                         </Link>
 
                         <div className="hidden md:flex items-center gap-2 bg-white/[0.02] border border-white/10 rounded-xl px-2 py-1">
-                            <NavLink to="/events" className={linkClass}>Concerts & Events</NavLink>
+                            {user && <NavLink to="/events" className={linkClass}>Events & Concerts</NavLink>}
                             {isAdmin ? (
                                 <>
                                     <NavLink to="/admin/dashboard" className={linkClass}>Dashboard</NavLink>
@@ -42,12 +42,13 @@ const MainLayout = ({ user, isAdmin, onLogout, children }) => {
                                     <NavLink to="/admin/refund-requests" className={linkClass}>Refunds</NavLink>
                                     <NavLink to="/admin/users" className={linkClass}>Users</NavLink>
                                 </>
-                            ) : (
+                            ) : user ? (
                                 <>
                                     <NavLink to="/user/dashboard" className={linkClass}>Dashboard</NavLink>
                                     <NavLink to="/user/bookings" className={linkClass}>My Bookings</NavLink>
+                                    <NavLink to="/user/settings" className={linkClass}>Profile</NavLink>
                                 </>
-                            )}
+                            ) : null}
                         </div>
 
                         <button
@@ -59,23 +60,40 @@ const MainLayout = ({ user, isAdmin, onLogout, children }) => {
                         </button>
 
                         <div className="flex items-center gap-3 shrink-0">
-                            {user && (
-                                <div className="hidden sm:flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-zinc-700 border border-zinc-500 flex items-center justify-center text-xs font-bold uppercase">
-                                        {user.name?.[0] || 'U'}
+                            {user ? (
+                                <>
+                                    <div className="hidden sm:flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-full bg-zinc-700 border border-zinc-500 flex items-center justify-center text-xs font-bold uppercase">
+                                            {user.name?.[0] || 'U'}
+                                        </div>
+                                        <div className="flex flex-col leading-tight">
+                                            <span className="text-xs font-semibold">{user.name || user.email}</span>
+                                            <span className="text-[10px] uppercase tracking-wide text-zinc-500">{isAdmin ? 'Event Manager' : 'Ticket Holder'}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col leading-tight">
-                                        <span className="text-xs font-semibold">{user.name || user.email}</span>
-                                        <span className="text-[10px] uppercase tracking-wide text-zinc-500">{isAdmin ? 'Event Manager' : 'Ticket Holder'}</span>
-                                    </div>
-                                </div>
+                                    <button
+                                        onClick={onLogout}
+                                        className="text-[11px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-full border border-zinc-600 hover:border-zinc-400 hover:bg-zinc-800 hover:text-white transition"
+                                    >
+                                        Logout
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <Link
+                                        to="/login"
+                                        className="text-[11px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-full border border-zinc-600 hover:border-zinc-400 hover:bg-zinc-800 hover:text-white transition"
+                                    >
+                                        Login
+                                    </Link>
+                                    <Link
+                                        to="/register"
+                                        className="text-[11px] font-semibold uppercase tracking-wide px-5 py-1.5 rounded-full bg-white text-black hover:bg-zinc-200 transition"
+                                    >
+                                        Register
+                                    </Link>
+                                </>
                             )}
-                            <button
-                                onClick={onLogout}
-                                className="text-[11px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-full border border-zinc-600 hover:border-zinc-400 hover:bg-zinc-800 hover:text-white transition"
-                            >
-                                Logout
-                            </button>
                         </div>
                     </div>
 

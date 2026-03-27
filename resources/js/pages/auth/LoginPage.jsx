@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 
 const Login = () => {
-    const [email, setEmail] = useState('');
+    const [login, setLogin] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -17,7 +17,7 @@ const Login = () => {
             // Get CSRF cookie first (required for session-based auth)
             await axios.get('/api/csrf-cookie');
 
-            const response = await axios.post('/api/login', { email, password });
+            const response = await axios.post('/api/login', { login, password });
             const userData = response.data;
 
             if (userData) {
@@ -78,9 +78,17 @@ const Login = () => {
                         <h2 className="font-display text-4xl sm:text-5xl font-bold text-white tracking-tight leading-none">
                             Sign in to book events
                         </h2>
-                        <p className="mt-2 text-xs text-zinc-400">
-                            Use your account to access the full Event Booking and Ticketing System.
-                        </p>
+                        <div className="mt-4 flex items-center justify-center lg:justify-start gap-4">
+                            <p className="text-xs text-zinc-400">
+                                Use your account to access the full Event Booking and Ticketing System.
+                            </p>
+                            <Link 
+                                to="/events" 
+                                className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-300 hover:text-white border-b border-zinc-700 hover:border-white transition-all pb-0.5"
+                            >
+                                ← Back to events
+                            </Link>
+                        </div>
                     </div>
 
                     {error && (
@@ -92,21 +100,21 @@ const Login = () => {
                     <form onSubmit={handleSubmit} className="bg-[#141618]/92 border border-white/10 rounded-xl p-6 space-y-4">
                         <div className="space-y-1">
                             <label
-                                htmlFor="email"
+                                htmlFor="login"
                                 className="block text-[11px] font-semibold tracking-[0.18em] uppercase text-zinc-300"
                             >
-                                Email Address
+                                Email or Username
                             </label>
                             <input
-                                id="email"
-                                name="email"
-                                type="email"
-                                autoComplete="email"
+                                id="login"
+                                name="login"
+                                type="text"
+                                autoComplete="username"
                                 required
                                 className="mt-1 block w-full rounded-md bg-[#1b1d20] border border-white/10 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 focus:border-zinc-400"
-                                placeholder="you@example.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="you@example.com or @username"
+                                value={login}
+                                onChange={(e) => setLogin(e.target.value)}
                             />
                         </div>
                         <div className="space-y-1">

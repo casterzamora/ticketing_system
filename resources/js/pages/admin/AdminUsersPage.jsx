@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const AdminUsers = () => {
+    const navigate = useNavigate();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -60,126 +62,206 @@ const AdminUsers = () => {
     };
 
     return (
-        <div className="page-shell">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="page-card p-5 sm:p-6 mb-6">
-                    <header className="mb-4">
-                        <p className="text-[11px] font-semibold tracking-[0.25em] uppercase text-stone-300">Admin</p>
-                        <h1 className="font-display mt-1 text-4xl sm:text-5xl font-bold text-white leading-none">User Management</h1>
-                        <p className="text-xs text-gray-400 mt-1">{total} registered users</p>
-                    </header>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div className="kpi-chip"><p className="text-[10px] tracking-[0.18em] uppercase text-zinc-400">Total</p><p className="font-display text-2xl text-white mt-0.5">{total}</p></div>
-                        <div className="kpi-chip"><p className="text-[10px] tracking-[0.18em] uppercase text-zinc-400">Active</p><p className="font-display text-2xl text-white mt-0.5">{users.filter((u) => u.is_active).length}</p></div>
-                        <div className="kpi-chip"><p className="text-[10px] tracking-[0.18em] uppercase text-zinc-400">Admins</p><p className="font-display text-2xl text-white mt-0.5">{users.filter((u) => u.is_admin).length}</p></div>
-                        <div className="kpi-chip"><p className="text-[10px] tracking-[0.18em] uppercase text-zinc-400">Page</p><p className="font-display text-2xl text-white mt-0.5">{page}</p></div>
+        <div className="min-h-screen bg-[#0a0a0b] text-zinc-400 font-sans pb-20">
+            <div className="max-w-7xl mx-auto px-6 pt-12">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
+                    <div>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="h-[1px] w-8 bg-emerald-500/50"></div>
+                            <span className="text-[10px] tracking-[0.3em] uppercase font-bold text-emerald-500/80">
+                                User Management
+                            </span>
+                        </div>
+                        <h1 className="text-6xl md:text-8xl font-black text-white tracking-tighter leading-[0.85] mb-6">
+                            USERS<span className="text-emerald-500">.</span>
+                        </h1>
+                        <p className="text-zinc-500 max-w-md text-sm leading-relaxed border-l border-zinc-800 pl-4">
+                            Manage system access, update credentials, and monitor user engagement metrics across the platform.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
+                        <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-2xl backdrop-blur-sm min-w-[160px]">
+                            <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-2">Total Users</p>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-white">{total}</span>
+                                <span className="text-[10px] text-emerald-500 font-bold">LIVE</span>
+                            </div>
+                        </div>
+                        <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-2xl backdrop-blur-sm min-w-[160px]">
+                            <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-2">Active Sessions</p>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-white">{users.filter(u => u.is_active).length}</span>
+                                <span className="text-[10px] text-zinc-600 font-bold">AUTH</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {message && (
-                    <div className="mb-4 bg-green-900/30 border border-green-600 text-green-300 text-xs px-4 py-3 rounded-xl">{message}</div>
+                    <div className="mb-8 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 text-[11px] uppercase tracking-widest font-bold px-6 py-4 rounded-xl flex items-center gap-3">
+                        {message}
+                    </div>
                 )}
 
-                <div className="page-card p-4 flex flex-wrap gap-3 mb-6">
-                    <input
-                        type="text"
-                        placeholder="Search by name or email..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="bg-black/60 border border-gray-700 text-sm text-gray-100 placeholder-gray-500 rounded-full px-4 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-400 w-64"
-                    />
-                    <select
-                        value={roleFilter}
-                        onChange={(e) => setRoleFilter(e.target.value)}
-                        className="bg-black/60 border border-gray-700 text-sm text-gray-100 rounded-full px-4 py-2 focus:outline-none"
-                    >
-                        <option value="">All Roles</option>
-                        <option value="admin">Admin</option>
-                        <option value="user">User</option>
-                    </select>
+                {/* Filters */}
+                <div className="flex flex-col md:flex-row gap-4 mb-8">
+                    <div className="relative flex-1 group">
+                        <input
+                            type="text"
+                            placeholder="SEARCH BY NAME OR EMAIL..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full bg-zinc-900/40 border border-zinc-800 text-[11px] font-bold tracking-widest text-white placeholder-zinc-600 rounded-2xl px-6 py-4 focus:outline-none focus:border-emerald-500/50 transition-all uppercase"
+                        />
+                    </div>
+                    <div className="flex gap-4">
+                        <select
+                            value={roleFilter}
+                            onChange={(e) => setRoleFilter(e.target.value)}
+                            className="bg-zinc-900/40 border border-zinc-800 text-[11px] font-bold tracking-widest text-white rounded-2xl px-6 py-4 focus:outline-none focus:border-emerald-500/50 transition-all uppercase appearance-none min-w-[160px]"
+                        >
+                            <option value="">ALL ROLES</option>
+                            <option value="admin">ADMINISTRATOR</option>
+                            <option value="user">STANDARD USER</option>
+                        </select>
+                    </div>
                 </div>
 
-                {loading ? (
-                    <div className="page-card p-10 text-center text-[11px] tracking-widest uppercase text-zinc-400">Loading users...</div>
-                ) : users.length === 0 ? (
-                    <div className="page-card text-center py-20">
-                        <p className="text-zinc-400">No users found.</p>
-                    </div>
-                ) : (
-                    <>
-                        <div className="table-shell overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-black/80 text-[11px] text-gray-400 font-bold tracking-widest uppercase">
-                                    <tr>
-                                        {['User', 'Role', 'Status', 'Bookings', 'Joined', 'Actions'].map((h) => (
-                                            <th key={h} className="text-left px-4 py-3 whitespace-nowrap">{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {users.map((u) => (
-                                        <tr key={u.id} className="border-t border-gray-800 hover:bg-white/[0.03] transition">
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-stone-500 to-zinc-600 flex items-center justify-center text-xs font-bold uppercase shrink-0">
-                                                        {u.name?.[0] || 'U'}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-white">{u.name}</p>
-                                                        <p className="text-[10px] text-gray-400">{u.email}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <select
-                                                    value={u.is_admin ? 'admin' : 'user'}
-                                                    disabled={actionLoading === `role-${u.id}`}
-                                                    onChange={(e) => handleAssignRole(u.id, e.target.value)}
-                                                    className="bg-black/60 border border-gray-700 text-xs text-gray-100 rounded-full px-2 py-1 focus:outline-none"
-                                                >
-                                                    <option value="user">User</option>
-                                                    <option value="admin">Admin</option>
-                                                </select>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full border ${u.is_active ? 'bg-green-500/20 text-green-300 border-green-600' : 'bg-gray-500/20 text-gray-400 border-gray-600'}`}>
-                                                    {u.is_active ? 'Active' : 'Inactive'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-300 text-center">{u.bookings_count ?? '—'}</td>
-                                            <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
-                                                {u.created_at ? new Date(u.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <button
-                                                    onClick={() => handleToggleActive(u.id)}
-                                                    disabled={actionLoading === `active-${u.id}`}
-                                                    className={`text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 ${u.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
-                                                >
-                                                    {actionLoading === `active-${u.id}` ? '...' : u.is_active ? 'Deactivate' : 'Activate'}
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                {/* Main Table */}
+                <div className="bg-zinc-900/20 border border-zinc-800/50 rounded-3xl overflow-hidden backdrop-blur-md">
+                    {loading ? (
+                        <div className="py-32 flex flex-col items-center justify-center gap-4">
+                            <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+                            <p className="text-[10px] tracking-[0.3em] font-black text-zinc-500 uppercase">Synchronizing Data...</p>
                         </div>
-
-                        {lastPage > 1 && (
-                            <div className="flex gap-2 mt-4 justify-end">
-                                {Array.from({ length: lastPage }, (_, i) => i + 1).map((p) => (
-                                    <button
-                                        key={p}
-                                        onClick={() => setPage(p)}
-                                        className={`w-8 h-8 rounded-full text-xs font-semibold transition ${p === page ? 'bg-zinc-700 text-white' : 'bg-black/60 border border-gray-700 text-gray-400 hover:border-zinc-400'}`}
-                                    >
-                                        {p}
-                                    </button>
-                                ))}
+                    ) : users.length === 0 ? (
+                        <div className="py-32 text-center">
+                            <p className="text-[10px] tracking-[0.3em] font-black text-zinc-600 uppercase">No Matches Found</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="overflow-x-auto">
+                                <table className="w-full border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-zinc-800/50">
+                                            {['User / Contact', 'Role', 'Status', 'Last Login', 'Bookings', 'Registered', 'Actions'].map((h, i) => (
+                                                <th key={h} className={`px-8 py-6 text-left text-[10px] font-black tracking-[0.2em] uppercase text-zinc-500 ${i === 4 ? 'text-center' : ''}`}>
+                                                    {h}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-800/30">
+                                        {users.map((u) => (
+                                            <tr key={u.id} className="group hover:bg-white/[0.02] transition-all duration-300">
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="relative">
+                                                            <div 
+                                                                onClick={() => navigate(`/admin/users/${u.id}`)}
+                                                                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center border border-zinc-800 group-hover:border-emerald-500/50 cursor-pointer transition-colors"
+                                                            >
+                                                                <span className="text-sm font-black text-white">{u.name?.[0] || 'U'}</span>
+                                                            </div>
+                                                            <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-[#0a0a0b] ${u.is_active ? 'bg-emerald-500' : 'bg-zinc-700'}`}></div>
+                                                        </div>
+                                                        <div>
+                                                            <div 
+                                                                onClick={() => navigate(`/admin/users/${u.id}`)}
+                                                                className="text-[13px] font-black text-white tracking-tight leading-none mb-1 group-hover:text-emerald-400 cursor-pointer transition-colors uppercase italic font-display"
+                                                            >
+                                                                {u.name}
+                                                            </div>
+                                                            <div className="flex gap-2 text-[10px] font-bold text-zinc-500 tracking-wider font-mono">
+                                                                <span className="text-emerald-500/50">@{u.username || 'unknown'}</span>
+                                                                <span>•</span>
+                                                                <span>{u.email}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <select
+                                                        value={u.is_admin ? 'admin' : 'user'}
+                                                        disabled={actionLoading === `role-${u.id}`}
+                                                        onChange={(e) => handleAssignRole(u.id, e.target.value)}
+                                                        className="bg-zinc-950 border border-zinc-800 text-[10px] font-black tracking-widest text-zinc-400 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500/50 transition-all uppercase appearance-none hover:border-zinc-600 cursor-pointer"
+                                                    >
+                                                        <option value="user">MEMBER</option>
+                                                        <option value="admin">OFFICER</option>
+                                                    </select>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${u.is_active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-zinc-700'}`}></div>
+                                                        <span className={`text-[10px] font-black tracking-[0.2em] uppercase ${u.is_active ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                                                            {u.is_active ? 'Operational' : 'Restricted'}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="text-[10px] font-bold text-zinc-400 tracking-widest uppercase italic font-mono">
+                                                        {u.last_login_at ? new Date(u.last_login_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'NEVER'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6 text-center">
+                                                    <div className="inline-flex flex-col items-center">
+                                                        <span className="text-sm font-black text-white mb-0.5">{u.bookings_count ?? 0}</span>
+                                                        <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-tighter">Orders</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="text-[10px] font-bold text-zinc-400 tracking-widest uppercase">
+                                                        {u.created_at ? new Date(u.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <button
+                                                        onClick={() => handleToggleActive(u.id)}
+                                                        disabled={actionLoading === `active-${u.id}`}
+                                                        className={`text-[10px] font-black uppercase tracking-[0.15em] px-4 py-2 rounded-xl transition-all duration-300 border ${
+                                                            u.is_active 
+                                                                ? 'text-zinc-400 border-zinc-800 hover:text-red-400 hover:border-red-900/50 hover:bg-red-950/20' 
+                                                                : 'text-emerald-400 border-emerald-900/30 bg-emerald-950/10 hover:bg-emerald-500/20'
+                                                        } disabled:opacity-20`}
+                                                    >
+                                                        {actionLoading === `active-${u.id}` ? 'PROCESSING...' : u.is_active ? 'DEACTIVATE' : 'AUTHORIZE'}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                        )}
-                    </>
-                )}
+
+                            {/* Pagination */}
+                            {lastPage > 1 && (
+                                <div className="p-8 border-t border-zinc-800/50 flex justify-between items-center">
+                                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">
+                                        Page {page} of {lastPage}
+                                    </p>
+                                    <div className="flex gap-2">
+                                        {Array.from({ length: lastPage }, (_, i) => i + 1).map((p) => (
+                                            <button
+                                                key={p}
+                                                onClick={() => setPage(p)}
+                                                className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all duration-300 flex items-center justify-center ${
+                                                    p === page 
+                                                        ? 'bg-white text-black' 
+                                                        : 'bg-zinc-900/50 text-zinc-500 hover:bg-zinc-800 border border-zinc-800/50'
+                                                }`}
+                                            >
+                                                {p.toString().padStart(2, '0')}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
         </div>
     );

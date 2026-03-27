@@ -49,6 +49,7 @@ class Event extends Model
         'is_featured',
         'is_active',
         'image_url',
+        'video_url',
         'created_by',
     ];
 
@@ -183,15 +184,15 @@ class Event extends Model
     }
 
     /**
-     * Check if the event is at least 48 hours away.
+     * Check if the event is at least 72 hours away (industry standard).
      * 
      * This method is used for refund eligibility according to business rules.
      * 
      * @return bool
      */
-    public function isMoreThan48HoursAway(): bool
+    public function isMoreThan72HoursAway(): bool
     {
-        return $this->start_time->diffInHours(Carbon::now()) > 48;
+        return $this->start_time->diffInHours(\Carbon\Carbon::now()) >= 72;
     }
 
     /**

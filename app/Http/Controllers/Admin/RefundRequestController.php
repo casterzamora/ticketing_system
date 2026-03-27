@@ -11,6 +11,7 @@ use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 
 /**
  * Admin RefundRequest Controller
@@ -35,9 +36,9 @@ class RefundRequestController extends Controller
      * for different statuses and time periods.
      * 
      * @param Request $request
-     * @return View
+     * @return View|JsonResponse
      */
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         $query = RefundRequest::with([
             'booking' => function ($query) {
@@ -66,11 +67,18 @@ class RefundRequestController extends Controller
                             ->orWhereHas('user', function ($userQuery) use ($search) {
                                 $userQuery->where('email', 'like', "%{$search}%")
                                          ->orWhere('name', 'like', "%{$search}%");
+                            })
+                            ->orWhereHas('event', function ($eventQuery) use ($search) {
+                                $eventQuery->where('title', 'like', "%{$search}%");
                             });
             });
         }
 
         $refundRequests = $query->latest()->paginate(15);
+
+        if ($request->wantsJson() || $request->is('api/*')) {
+            return response()->json($refundRequests);
+        }
 
         // Get statistics
         $stats = [
@@ -91,9 +99,9 @@ class RefundRequestController extends Controller
      * booking details, payment history, and approval workflow.
      * 
      * @param RefundRequest $refundRequest
-     * @return View
+     * @return View|JsonResponse
      */
-    public function show(RefundRequest $refundRequest): View
+    public function show(RefundRequest $refundRequest): View|JsonResponse
     {
         $refundRequest->load([
             'booking' => function ($query) {
@@ -104,6 +112,10 @@ class RefundRequestController extends Controller
                 $query->latest();
             }
         ]);
+
+        if (request()->wantsJson() || request()->is('api/*')) {
+            return response()->json($refundRequest);
+        }
 
         // Check refund eligibility
         $eligibility = [
@@ -122,13 +134,16 @@ class RefundRequestController extends Controller
      * 
      * @param ApproveRefundRequest $request
      * @param RefundRequest $refundRequest
-     * @return RedirectResponse
+     * @return RedirectResponse|JsonResponse
      */
-    public function approve(ApproveRefundRequest $request, RefundRequest $refundRequest): RedirectResponse
+    public function approve(ApproveRefundRequest $request, RefundRequest $refundRequest): RedirectResponse|JsonResponse
     {
         try {
             // Check if refund can be approved
             if (!$refundRequest->canBeApproved()) {
+                if ($request->wantsJson()) {
+                    return response()->json(['message' => 'This refund request cannot be approved based on current business rules.'], 422);
+                }
                 return redirect()
                     ->back()
                     ->with('error', 'This refund request cannot be approved based on current business rules.');
@@ -137,10 +152,13 @@ class RefundRequestController extends Controller
             // Process approval
             $success = $refundRequest->approve(
                 auth()->id(),
-                $request->refund_method
+                $request->refund_method ?? 'original'
             );
 
             if (!$success) {
+                if ($request->wantsJson()) {
+                    return response()->json(['message' => 'Error processing refund approval.'], 500);
+                }
                 return redirect()
                     ->back()
                     ->with('error', 'Error processing refund approval.');
@@ -149,11 +167,18 @@ class RefundRequestController extends Controller
             // Log activity
             ActivityLogService::logRefundRequest('approved', $refundRequest);
 
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'Refund request approved and processed successfully!']);
+            }
+
             return redirect()
                 ->route('admin.refund-requests.show', $refundRequest)
                 ->with('success', 'Refund request approved and processed successfully!');
 
         } catch (\Exception $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'Error approving refund request: ' . $e->getMessage()], 500);
+            }
             return redirect()
                 ->back()
                 ->with('error', 'Error approving refund request: ' . $e->getMessage());
@@ -168,13 +193,16 @@ class RefundRequestController extends Controller
      * 
      * @param RejectRefundRequest $request
      * @param RefundRequest $refundRequest
-     * @return RedirectResponse
+     * @return RedirectResponse|JsonResponse
      */
-    public function reject(RejectRefundRequest $request, RefundRequest $refundRequest): RedirectResponse
+    public function reject(RejectRefundRequest $request, RefundRequest $refundRequest): RedirectResponse|JsonResponse
     {
         try {
             // Check if refund can be rejected
             if (!$refundRequest->isPending()) {
+                if ($request->wantsJson()) {
+                    return response()->json(['message' => 'Only pending refund requests can be rejected.'], 422);
+                }
                 return redirect()
                     ->back()
                     ->with('error', 'Only pending refund requests can be rejected.');
@@ -183,10 +211,13 @@ class RefundRequestController extends Controller
             // Process rejection
             $success = $refundRequest->reject(
                 auth()->id(),
-                $request->rejection_reason
+                $request->rejection_reason ?? $request->notes ?? 'Administrative rejection'
             );
 
             if (!$success) {
+                if ($request->wantsJson()) {
+                    return response()->json(['message' => 'Error processing refund rejection.'], 500);
+                }
                 return redirect()
                     ->back()
                     ->with('error', 'Error processing refund rejection.');
@@ -195,11 +226,18 @@ class RefundRequestController extends Controller
             // Log activity
             ActivityLogService::logRefundRequest('rejected', $refundRequest);
 
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'Refund request rejected successfully!']);
+            }
+
             return redirect()
                 ->route('admin.refund-requests.show', $refundRequest)
                 ->with('success', 'Refund request rejected successfully!');
 
         } catch (\Exception $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'Error rejecting refund request: ' . $e->getMessage()], 500);
+            }
             return redirect()
                 ->back()
                 ->with('error', 'Error rejecting refund request: ' . $e->getMessage());
@@ -378,19 +416,17 @@ class RefundRequestController extends Controller
             $reasons[] = 'Booking is not confirmed';
         }
 
-        // Check if event is more than 48 hours away
-        if (!$refundRequest->booking->event->isMoreThan48HoursAway()) {
-            $reasons[] = 'Event is less than 48 hours away';
-        }
-
         // Check if already processed
         if ($refundRequest->isProcessed()) {
             $reasons[] = 'Refund request has already been processed';
         }
 
-        // Check if event is cancelled
-        if ($refundRequest->booking->event->status === 'cancelled') {
-            $reasons[] = 'Event has been cancelled';
+        // If not an admin override situation, check booking eligibility
+        if (!auth()->check() || !auth()->user()->isAdmin()) {
+            // Check if booking is refundable (this checks if event is cancelled)
+            if (!$refundRequest->booking->isRefundable()) {
+                $reasons[] = 'Booking is not eligible for refund (Policy: Non-Refundable by default unless event is cancelled)';
+            }
         }
 
         return $reasons;

@@ -9,6 +9,13 @@ const EventDetail = ({ isAuthenticated }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    const getYouTubeId = (url) => {
+        if (!url) return null;
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    };
+
     useEffect(() => {
         const fetchEvent = async () => {
             try {
@@ -85,7 +92,11 @@ const EventDetail = ({ isAuthenticated }) => {
                                     : '',
                             },
                             { label: 'Venue',  value: event.venue, sub: event.address },
-                            { label: 'From',   value: cheapest < Infinity ? `₱${cheapest.toLocaleString()}` : 'Free', sub: `${event.max_capacity?.toLocaleString()} total capacity` },
+                            { 
+                                label: 'Inventory', 
+                                value: event.remaining_total > 0 ? `${event.remaining_total.toLocaleString()} Tickets` : 'SOLD OUT', 
+                                sub: `${((event.max_capacity - event.remaining_total) / event.max_capacity * 100).toFixed(0)}% Reserved` 
+                            },
                         ].map(({ label, value, sub }) => (
                             <div key={label} className="bg-[#141618]/90 border border-white/10 rounded-xl p-4">
                                 <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-400">{label}</p>
@@ -101,6 +112,25 @@ const EventDetail = ({ isAuthenticated }) => {
                         <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">{event.description}</p>
                     </div>
 
+                    {/* Video Embed */}
+                    {event.video_url && getYouTubeId(event.video_url) && (
+                        <div className="bg-[#141618]/90 border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                            <div className="p-5 border-b border-white/5">
+                                <h2 className="font-display text-xl tracking-[0.08em] uppercase text-zinc-200">Official Trailer</h2>
+                            </div>
+                            <div className="aspect-video">
+                                <iframe
+                                    className="w-full h-full"
+                                    src={`https://www.youtube.com/embed/${getYouTubeId(event.video_url)}?autoplay=0&mute=0&rel=0`}
+                                    title="YouTube video player"
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowFullScreen
+                                ></iframe>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Ticket types */}
                     {event.ticket_types?.length > 0 && (
                         <div className="bg-[#141618]/90 border border-white/10 rounded-xl p-5">
@@ -109,10 +139,23 @@ const EventDetail = ({ isAuthenticated }) => {
                                 {event.ticket_types.map((t) => (
                                     <div key={t.id} className="flex items-center justify-between border border-white/10 rounded-lg px-4 py-3 bg-white/[0.02]">
                                         <div>
-                                            <p className="text-sm font-semibold text-white">{t.name}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-semibold text-white">{t.name}</p>
+                                                {t.remaining > 0 && t.remaining <= 10 && (
+                                                    <span className="text-[9px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30 px-1.5 py-0.5 rounded animate-pulse">
+                                                        🔥 ALMOST SOLD OUT
+                                                    </span>
+                                                )}
+                                            </div>
                                             {t.description && <p className="text-[11px] text-zinc-400">{t.description}</p>}
                                             <p className="text-[11px] text-zinc-400 mt-0.5">
-                                                {t.remaining > 0 ? `${t.remaining.toLocaleString()} remaining` : <span className="text-red-400">Sold Out</span>}
+                                                {t.remaining > 0 ? (
+                                                    <span>
+                                                        {t.remaining.toLocaleString()} left / {t.quantity_available.toLocaleString()} total
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-red-400">Sold Out</span>
+                                                )}
                                             </p>
                                         </div>
                                         <div className="text-right">
@@ -168,9 +211,22 @@ const EventDetail = ({ isAuthenticated }) => {
                         )}
                         <div className="subtle-divider" />
                         <ul className="text-[11px] text-zinc-400 space-y-1.5 leading-relaxed">
-                            <li>Secure checkout with session-based authentication.</li>
-                            <li>One booking reference per order for easy tracking.</li>
-                            <li>Refund eligibility follows event timing policy.</li>
+                            <li className="flex gap-2">
+                                <span className="text-zinc-300">•</span>
+                                Secure checkout with session-based authentication.
+                            </li>
+                            <li className="flex gap-2">
+                                <span className="text-zinc-300">•</span>
+                                One booking reference per order for easy tracking.
+                            </li>
+                            <li className="flex gap-2 group">
+                                <span className="text-zinc-300">•</span>
+                                <span className="text-zinc-400 group-hover:text-zinc-200 transition-colors">Non-refundable by default. Full refunds only for cancelled events.</span>
+                            </li>
+                            <li className="flex gap-2 group">
+                                <span className="text-zinc-300">•</span>
+                                <span className="text-zinc-400 group-hover:text-zinc-200 transition-colors">Rescheduled events valid for the new date.</span>
+                            </li>
                         </ul>
                         <Link to="/events" className="block text-center text-xs text-zinc-500 hover:text-zinc-300 transition">
                             Back to all events

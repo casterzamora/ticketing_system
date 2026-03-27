@@ -19,6 +19,8 @@ class BookingResource extends JsonResource
             'total_tickets'        => $this->total_tickets,
             'total_amount'         => (float) $this->total_amount,
             'special_requirements' => $this->special_requirements,
+            'void_type'            => $this->void_type,
+            'void_reason'          => $this->void_reason,
             'created_at'           => $this->created_at?->toIso8601String(),
             'event'                => $this->whenLoaded('event', fn () => [
                 'id'         => $this->event->id,

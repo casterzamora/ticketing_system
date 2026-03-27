@@ -4,9 +4,23 @@ import axios from 'axios';
 
 const Events = ({ isAuthenticated }) => {
     const [events, setEvents] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('');
+    const [currentSlide, setCurrentSlide] = useState(0);
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const res = await axios.get('/api/categories');
+                setCategories(res.data || []);
+            } catch (err) {
+                console.error('Error fetching categories:', err);
+            }
+        };
+        fetchCategories();
+    }, []);
 
     const fetchEvents = useCallback(async () => {
         try {
@@ -34,13 +48,41 @@ const Events = ({ isAuthenticated }) => {
     }, [search, category]);
 
     useEffect(() => {
-        fetchEvents();
-    }, [fetchEvents]);
+        const timeoutId = setTimeout(() => {
+            fetchEvents();
+        }, 300); // 300ms debounce
+        return () => clearTimeout(timeoutId);
+    }, [search, category, fetchEvents]);
 
     const handleSearch = (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         fetchEvents();
     };
+
+    // Filter featured events for carousel
+    const featuredEvents = events.filter(e => e.is_featured).slice(0, 5);
+    
+    // Filter events with video URLs for "What We're Watching"
+    const videoEvents = events.filter(e => e.video_url).slice(0, 4);
+    
+    // Group events by month for the list view
+    const groupedEvents = events.reduce((acc, event) => {
+        const date = new Date(event.start_time);
+        const monthYear = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+        if (!acc[monthYear]) acc[monthYear] = [];
+        acc[monthYear].push(event);
+        return acc;
+    }, {});
+
+    // Auto-advance carousel
+    useEffect(() => {
+        if (featuredEvents.length > 1) {
+            const timer = setInterval(() => {
+                setCurrentSlide((prev) => (prev + 1) % featuredEvents.length);
+            }, 5000);
+            return () => clearInterval(timer);
+        }
+    }, [featuredEvents.length]);
 
     if (loading) {
         return (
@@ -56,304 +98,221 @@ const Events = ({ isAuthenticated }) => {
         <div className="relative">
             <div className="ambient-orb ambient-orb-warm w-48 h-48 top-20 -left-8 opacity-70" />
             <div className="ambient-orb ambient-orb-metal w-56 h-56 top-40 right-0 opacity-70" />
-            <section className="site-hero-shade border-b border-white/10">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 lg:py-16">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-                        <div className="lg:col-span-2 space-y-4 sm:space-y-5">
-                            <p className="text-[11px] font-semibold tracking-[0.3em] uppercase text-stone-300">
-                                Live This Week
-                            </p>
-                            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-[0.95] text-white">
-                                Discover concerts & events
-                            </h1>
-                            <p className="text-sm sm:text-base text-zinc-300 max-w-xl">
-                                Browse shows, reserve seats, manage bookings.
-                            </p>
-
-                            <form
-                                onSubmit={handleSearch}
-                                className="mt-4 grid grid-cols-1 sm:grid-cols-5 gap-3 sm:items-center bg-[#111315]/85 border border-white/10 rounded-2xl px-4 py-4"
-                            >
-                                <input
-                                    type="text"
-                                    placeholder="Search events"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="sm:col-span-3 bg-[#17191c] border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                                />
-                                <select
-                                    value={category}
-                                    onChange={(e) => setCategory(e.target.value)}
-                                    className="sm:col-span-1 bg-[#17191c] border border-white/10 text-xs text-zinc-100 rounded-xl px-3 py-3 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                                >
-                                    <option value="">All Categories</option>
-                                    <option value="concerts">Concerts</option>
-                                    <option value="sports">Sports</option>
-                                    <option value="theater">Theater</option>
-                                    <option value="comedy">Comedy</option>
-                                    <option value="conferences">Conferences</option>
-                                    <option value="workshops">Workshops</option>
-                                </select>
-                                <button
-                                    type="submit"
-                                    className="sm:col-span-1 mt-1 sm:mt-0 text-[11px] font-semibold tracking-[0.22em] uppercase btn-primary-neutral px-5 py-3 rounded-xl transition"
-                                >
-                                    Find Events
-                                </button>
-                            </form>
-
-                            <div className="pt-2 grid grid-cols-3 gap-3 max-w-xl">
-                                {[
-                                    ['250+', 'ANNUAL EVENTS'],
-                                    ['98%', 'BOOKING SUCCESS'],
-                                    ['24/7', 'TICKET ACCESS'],
-                                ].map(([value, label]) => (
-                                    <div key={label} className="border border-white/10 bg-white/[0.02] rounded-lg px-3 py-2">
-                                        <p className="font-display text-2xl font-semibold text-white">{value}</p>
-                                        <p className="text-[10px] tracking-[0.2em] uppercase text-zinc-400">{label}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="subtle-divider max-w-xl" />
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl">
-                                {[
-                                    ['Verified Inventory', 'Real-time seat count from your backend'],
-                                    ['Secure Checkout', 'Session-based login and CSRF-protected booking flow'],
-                                    ['Fast Support', 'Refund reviews and status updates in one dashboard'],
-                                ].map(([title, desc]) => (
-                                    <div key={title} className="soft-highlight-card p-3">
-                                        <p className="text-xs tracking-[0.16em] uppercase text-zinc-300">{title}</p>
-                                        <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">{desc}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="hidden lg:block">
-                            <div className="rounded-2xl border border-white/10 bg-[#15171a] shadow-xl">
-                                <div className="rounded-2xl p-5 h-full flex flex-col justify-between">
-                                    <div>
-                                        <p className="text-[11px] tracking-[0.25em] uppercase text-zinc-400">
-                                            Featured
-                                        </p>
-                                        <p className="mt-1 text-base font-semibold text-white">
-                                            {events[0]?.title || 'No upcoming shows'}
-                                        </p>
-                                        {events[0] && (
-                                            <p className="mt-1 text-xs text-zinc-400">
-                                                {new Date(events[0].start_time).toLocaleDateString()} ·{' '}
-                                                {events[0].venue}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div className="mt-4 text-[11px] text-zinc-500 leading-relaxed">
-                                        Real-time seat inventory and booking updates.
+            
+            {/* Featured Carousel */}
+            {featuredEvents.length > 0 && (
+                <section className="relative h-[400px] sm:h-[500px] lg:h-[600px] overflow-hidden border-b border-white/10">
+                    {featuredEvents.map((event, idx) => (
+                        <div
+                            key={event.id}
+                            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                                idx === currentSlide ? 'opacity-100' : 'opacity-0'
+                            }`}
+                        >
+                            <img
+                                src={event.image_url || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=1600'}
+                                alt={event.title}
+                                className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#151618] via-transparent to-transparent" />
+                            <div className="absolute bottom-16 left-0 right-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                                <div className="max-w-2xl space-y-4">
+                                    <p className="text-[11px] font-semibold tracking-[0.3em] uppercase text-stone-300">
+                                        Featured Event
+                                    </p>
+                                    <h2 className="text-4xl sm:text-6xl font-display font-bold leading-none text-white">
+                                        {event.title}
+                                    </h2>
+                                    <p className="text-sm sm:text-lg text-zinc-300 line-clamp-2 max-w-lg">
+                                        {event.description}
+                                    </p>
+                                    <div className="pt-2 flex flex-wrap gap-4">
+                                        <Link
+                                            to={`/events/${event.id}`}
+                                            className="text-[11px] font-semibold tracking-[0.22em] uppercase bg-white text-black px-8 py-3 rounded-xl hover:bg-zinc-200 transition shadow-lg"
+                                        >
+                                            View Details
+                                        </Link>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </section>
-
-            <section className="py-10 sm:py-12">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
-                        <h2 className="content-section-title">How It Works</h2>
-                        <p className="text-xs text-zinc-400 max-w-md">Discover, book, and manage events.</p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {[
-                            ['1. Discover', 'Search and find events.'],
-                            ['2. Reserve', 'Select tickets and confirm.'],
-                            ['3. Manage', 'Track bookings and request refunds.'],
-                        ].map(([title, body]) => (
-                            <article key={title} className="soft-highlight-card p-5">
-                                <h3 className="font-display text-3xl text-white leading-none">{title}</h3>
-                                <p className="text-sm text-zinc-400 mt-2 leading-relaxed">{body}</p>
-                            </article>
+                    ))}
+                    
+                    {/* Carousel Indicators */}
+                    <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-2">
+                        {featuredEvents.map((_, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => setCurrentSlide(idx)}
+                                className={`w-2 h-2 rounded-full transition-all ${
+                                    idx === currentSlide ? 'bg-white w-6' : 'bg-white/30'
+                                }`}
+                            />
                         ))}
                     </div>
-                </div>
-            </section>
+                </section>
+            )}
 
-            {/* Events grid */}
-            <section className="bg-transparent">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-[0.08em] uppercase text-zinc-100">
-                            Upcoming Shows
-                        </h2>
-                        <span className="text-[11px] text-zinc-500">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+                {/* Search and Filters */}
+                <div className="mb-12">
+                    <form
+                        onSubmit={handleSearch}
+                        className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-center bg-[#111315]/85 border border-white/10 rounded-2xl px-4 py-4"
+                    >
+                        <input
+                            type="text"
+                            placeholder="Search by artist, team or venue"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="sm:col-span-3 bg-[#17191c] border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent transition-all"
+                        />
+                        <select
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            className="sm:col-span-1 bg-[#17191c] border border-white/10 text-xs text-zinc-100 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-transparent transition-all"
+                        >
+                            <option value="">All Categories</option>
+                            {categories.map((c) => (
+                                <option key={c.id} value={c.slug}>{c.name}</option>
+                            ))}
+                        </select>
+                        <button
+                            type="submit"
+                            className="sm:col-span-1 text-[11px] font-semibold tracking-[0.22em] uppercase btn-primary-neutral px-5 py-3 rounded-xl transition"
+                        >
+                            Find Events
+                        </button>
+                    </form>
+                </div>
+
+                {/* "What We're Watching" Section */}
+                <section className="mb-16">
+                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-8">
+                        <div>
+                            <h2 className="content-section-title">What We're Watching</h2>
+                            <p className="text-xs text-zinc-400 mt-1">Exclusive trailers and announcements</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {videoEvents.length > 0 ? (
+                            videoEvents.map((event) => (
+                                <a 
+                                    key={event.id} 
+                                    href={event.video_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="group cursor-pointer block"
+                                >
+                                    <div className="relative aspect-video rounded-xl overflow-hidden mb-3 border border-white/10">
+                                        <img src={event.image_url || 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?auto=format&fit=crop&q=80&w=400'} alt={event.title} className="w-full h-full object-cover transition duration-500 group-hover:scale-110" />
+                                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                                            <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 transform scale-90 group-hover:scale-100 transition duration-300">
+                                                <svg className="w-6 h-6 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7L8 5z"/></svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <h3 className="text-[13px] font-semibold text-zinc-100 group-hover:text-white transition line-clamp-2 uppercase tracking-wider font-display">{event.title}</h3>
+                                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">Watch Now</p>
+                                </a>
+                            ))
+                        ) : (
+                            <div className="col-span-full py-16 bg-white/[0.02] border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center">
+                                <p className="text-[11px] tracking-[0.2em] uppercase text-zinc-500">No videos available right now</p>
+                                <p className="text-[9px] text-zinc-600 mt-2 uppercase tracking-widest">Featured videos will appear here</p>
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                {/* Grouped Events List */}
+                <section>
+                    <div className="flex items-center justify-between mb-8">
+                        <h2 className="content-section-title">Upcoming Shows</h2>
+                        <span className="text-[11px] text-zinc-500 uppercase tracking-[0.2em]">
                             {events.length} {events.length === 1 ? 'event' : 'events'} found
                         </span>
                     </div>
 
-                    {events.length === 0 ? (
-                        <div className="py-16 text-center text-zinc-400 text-sm border border-white/10 bg-white/[0.02] rounded-xl">
-                            No events match your filters right now. Try clearing your search or checking
-                            back later.
+                    {Object.keys(groupedEvents).length === 0 ? (
+                        <div className="py-20 text-center border border-white/10 bg-white/[0.02] rounded-2xl">
+                            <p className="text-zinc-500 text-sm">No upcoming shows found matching your filters.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {events.map((event, index) => {
-                                const start = event.start_time
-                                    ? new Date(event.start_time)
-                                    : null;
+                        <div className="space-y-12">
+                            {Object.entries(groupedEvents).map(([monthYear, monthEvents]) => (
+                                <div key={monthYear} className="space-y-4">
+                                    <h3 className="text-lg font-bold text-stone-300 border-b border-white/10 pb-2 ml-2 tracking-wide">
+                                        {monthYear}
+                                    </h3>
+                                    <div className="divide-y divide-white/5">
+                                        {monthEvents.map((event) => {
+                                            const startDate = new Date(event.start_time);
+                                            const day = startDate.getDate();
+                                            const weekday = startDate.toLocaleString('default', { weekday: 'short' });
+                                            const monthShort = startDate.toLocaleString('default', { month: 'short' });
 
-                                const dateLabel = start
-                                    ? start.toLocaleDateString(undefined, {
-                                          day: '2-digit',
-                                          month: 'short',
-                                          year: 'numeric',
-                                      })
-                                    : 'TBA';
+                                            return (
+                                                <div key={event.id} className="group flex flex-col sm:flex-row items-start sm:items-center py-6 px-4 hover:bg-white/[0.03] transition rounded-2xl border border-transparent hover:border-white/5">
+                                                    {/* Date Column */}
+                                                    <div className="flex sm:flex-col items-center justify-center min-w-[70px] text-center mb-4 sm:mb-0">
+                                                        <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">{weekday}</span>
+                                                        <span className="text-3xl font-display font-bold text-white my-0.5">{day}</span>
+                                                        <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">{monthShort}</span>
+                                                    </div>
 
-                                const price =
-                                    typeof event.base_price !== 'undefined'
-                                        ? Number(event.base_price)
-                                        : null;
+                                                    {/* Image (Small Tile) */}
+                                                    <div className="sm:mx-8 w-24 h-24 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-900 border border-white/10">
+                                                        <img 
+                                                            src={event.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&q=80&w=200'}
+                                                            className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
+                                                            alt={event.title}
+                                                        />
+                                                    </div>
 
-                                const ticketsLeft =
-                                    typeof event.available_capacity !== 'undefined'
-                                        ? Number(event.available_capacity)
-                                        : null;
-
-                                const soldOut = ticketsLeft !== null && ticketsLeft <= 0;
-
-                                return (
-                                    <article
-                                        key={event.id}
-                                        className="group bg-[#141517]/92 border border-white/10 rounded-xl overflow-hidden flex flex-col hover:border-zinc-400/50 hover:shadow-[0_14px_30px_rgba(0,0,0,0.3)] transition animate-fade-up"
-                                        style={{ animationDelay: `${Math.min(index * 55, 280)}ms` }}
-                                    >
-                                        {/* Image / banner */}
-                                        {event.image_url ? (
-                                            <div className="relative h-40 overflow-hidden">
-                                                <img
-                                                    src={event.image_url}
-                                                    alt={event.title}
-                                                    className="w-full h-full object-cover transform group-hover:scale-105 transition"
-                                                />
-                                                {soldOut && (
-                                                    <span className="absolute top-3 left-3 bg-[#181a1d]/95 border border-white/10 text-[10px] font-semibold tracking-[0.2em] uppercase text-white px-3 py-1 rounded-full">
-                                                        Sold Out
-                                                    </span>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="relative h-40 bg-gradient-to-br from-[#191b1f] via-[#15171a] to-[#111214] flex items-center justify-center">
-                                                <span className="text-xs tracking-[0.25em] uppercase text-zinc-500">
-                                                    No Image
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        {/* Content */}
-                                        <div className="flex-1 flex flex-col p-4 space-y-2">
-                                            <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                                                <span className="uppercase tracking-[0.2em] text-stone-300">
-                                                    {event.categories?.[0]?.name || 'Featured'}
-                                                </span>
-                                                <span>{dateLabel}</span>
-                                            </div>
-
-                                            <h3 className="text-base sm:text-lg font-semibold text-white line-clamp-2">
-                                                {event.title}
-                                            </h3>
-
-                                            <p className="text-xs text-zinc-400 line-clamp-2">
-                                                {event.description}
-                                            </p>
-
-                                            <p className="text-[11px] text-zinc-500 flex items-center uppercase tracking-[0.14em]">
-                                                <span className="mr-1">Venue:</span>
-                                                <span className="truncate">{event.venue}</span>
-                                            </p>
-
-                                            <div className="mt-2 flex items-end justify-between">
-                                                <div className="flex flex-col">
-                                                    {price !== null && !Number.isNaN(price) ? (
-                                                        <>
-                                                            <span className="text-[11px] text-zinc-400 uppercase tracking-[0.18em]">
-                                                                From
+                                                    {/* Details */}
+                                                    <div className="flex-grow min-w-0 pr-4 mt-2 sm:mt-0">
+                                                        <div className="flex items-center gap-2 mb-1 text-[10px] font-bold tracking-[0.2em] uppercase">
+                                                            <span className="text-stone-300">
+                                                                {event.categories?.[0]?.name || 'Featured'}
                                                             </span>
-                                                            <span className="text-lg font-bold text-stone-300">
-                                                                ₱{price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                            </span>
-                                                        </>
-                                                    ) : (
-                                                        <span className="text-xs text-zinc-400">
-                                                            Pricing to be announced
-                                                        </span>
-                                                    )}
+                                                            {event.is_featured && (
+                                                                <span className="bg-white/5 text-stone-200 text-[9px] px-2 py-0.5 rounded border border-white/10">
+                                                                    NEW
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <h4 className="text-base sm:text-lg font-bold text-white hover:text-stone-300 transition truncate">
+                                                            {event.title}
+                                                        </h4>
+                                                        <p className="text-xs text-zinc-400 mt-1 flex items-center">
+                                                            <span className="truncate">{event.venue} | {event.address?.split(',')[0]}</span>
+                                                        </p>
+                                                    </div>
+
+                                                    {/* Action */}
+                                                    <div className="mt-6 sm:mt-0 flex flex-col sm:items-end gap-2 w-full sm:w-auto">
+                                                        <Link
+                                                            to={`/events/${event.id}`}
+                                                            className="w-full sm:w-auto text-center text-[10px] font-semibold tracking-[0.2em] uppercase bg-white/5 hover:bg-white/10 text-white px-6 py-3 rounded-xl border border-white/10 transition"
+                                                        >
+                                                            Find Tickets
+                                                        </Link>
+                                                        {event.available_capacity <= 0 && (
+                                                            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold text-right mr-2">Sold Out</span>
+                                                        )}
+                                                    </div>
                                                 </div>
-
-                                                {ticketsLeft !== null && (
-                                                    <span
-                                                        className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${
-                                                            soldOut
-                                                                ? 'text-red-300'
-                                                                : ticketsLeft < 20
-                                                                ? 'text-amber-300'
-                                                                : 'text-zinc-300'
-                                                        }`}
-                                                    >
-                                                        {soldOut
-                                                            ? 'Sold Out'
-                                                            : `${ticketsLeft} left`}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            <div className="pt-2">
-                                                {soldOut ? (
-                                                    <button
-                                                        type="button"
-                                                        disabled
-                                                        className="w-full text-[11px] font-semibold tracking-[0.22em] uppercase rounded-full px-4 py-2 border border-zinc-700 text-zinc-500 cursor-not-allowed"
-                                                    >
-                                                        Join Waitlist
-                                                    </button>
-                                                ) : (
-                                                    <Link
-                                                        to={`/events/${event.id}`}
-                                                        className="block w-full text-center text-[11px] font-semibold tracking-[0.22em] uppercase rounded-full px-4 py-2 btn-secondary-neutral transition"
-                                                    >
-                                                        View Tickets
-                                                    </Link>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </article>
-                                );
-                            })}
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
-                </div>
-            </section>
-
-            {!isAuthenticated && (
-                <section className="pb-12 sm:pb-16">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="soft-highlight-card p-6 sm:p-8 flex flex-col md:flex-row md:items-end md:justify-between gap-5">
-                            <div>
-                                <p className="text-[11px] tracking-[0.22em] uppercase text-stone-300">Never Miss A Drop</p>
-                                <h3 className="font-display text-4xl sm:text-5xl text-white leading-none mt-1">Get early access to top events</h3>
-                                <p className="text-sm text-zinc-400 mt-2 max-w-xl">
-                                    Create an account to unlock faster booking, order history, and priority access once events are published.
-                                </p>
-                            </div>
-                            <div className="flex flex-wrap gap-3">
-                                <Link to="/register" className="btn-primary-neutral text-[11px] font-semibold tracking-[0.2em] uppercase px-5 py-3 rounded-xl transition">Create Account</Link>
-                                <Link to="/login" className="btn-secondary-neutral text-[11px] font-semibold tracking-[0.2em] uppercase px-5 py-3 rounded-xl transition">Sign In</Link>
-                            </div>
-                        </div>
-                    </div>
                 </section>
-            )}
+            </div>
         </div>
     );
 };

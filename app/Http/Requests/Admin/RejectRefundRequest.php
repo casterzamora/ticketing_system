@@ -83,10 +83,10 @@ class RejectRefundRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            $refundRequest = $this->route('refund_request');
+            $refundRequest = $this->route('refundRequest');
 
-            // Check if refund request is still pending
-            if ($refundRequest && !$refundRequest->isPending()) {
+            // Check if refund request exists and is still pending
+            if (!$refundRequest || !$refundRequest->isPending()) {
                 $validator->errors()->add('status', 
                     'Only pending refund requests can be rejected.');
             }

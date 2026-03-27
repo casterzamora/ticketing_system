@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-d
 import axios from 'axios';
 
 import MainLayout from './layouts/MainLayout';
+import AdminLayout from './layouts/AdminLayout';
 
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
@@ -15,6 +16,7 @@ import UserDashboardPage from './pages/user/UserDashboardPage';
 import BookingHistoryPage from './pages/user/BookingHistoryPage';
 import BookingDetailPage from './pages/user/BookingDetailPage';
 import BookingFormPage from './pages/user/BookingFormPage';
+import UserSettingsPage from './pages/user/UserSettingsPage';
 
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminEventsPage from './pages/admin/AdminEventsPage';
@@ -22,6 +24,8 @@ import AdminEventFormPage from './pages/admin/AdminEventFormPage';
 import AdminBookingsPage from './pages/admin/AdminBookingsPage';
 import AdminRefundsPage from './pages/admin/AdminRefundsPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminUserDetailsPage from './pages/admin/AdminUserDetailsPage';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 
 const RequireAuth = ({ isAuthenticated, children }) =>
     isAuthenticated ? children : <Navigate to="/login" replace />;
@@ -81,6 +85,11 @@ function App() {
         window.location.href = '/login';
     };
 
+    const handleUpdateUser = (updatedUser) => {
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+    };
+
     const isAdmin = !!user && (user.is_admin === true || user.isAdmin === true);
 
     if (checkingAuth) {
@@ -103,13 +112,25 @@ function App() {
 
     const withLayout = (content) => (
         <MainLayout user={user} isAdmin={isAdmin} onLogout={handleLogout}>
-            {content}
+            {React.cloneElement(content, { onUpdateUser: handleUpdateUser })}
         </MainLayout>
+    );
+
+    const withAdminLayout = (content) => (
+        <AdminLayout user={user} onLogout={handleLogout}>
+            {React.cloneElement(content, { onUpdateUser: handleUpdateUser })}
+        </AdminLayout>
     );
 
     return (
         <Router>
             <Routes>
+                <Route
+                    path="/"
+                    element={
+                        <Navigate to={isAuthenticated ? (isAdmin ? '/admin/dashboard' : '/user/dashboard') : '/login'} replace />
+                    }
+                />
                 <Route
                     path="/login"
                     element={
@@ -126,10 +147,7 @@ function App() {
                             : <RegisterPage />
                     }
                 />
-
-                <Route path="/" element={withLayout(<EventsPage isAuthenticated={isAuthenticated} />)} />
-                <Route path="/events" element={withLayout(<EventsPage isAuthenticated={isAuthenticated} />)} />
-                <Route path="/events/:id" element={withLayout(<EventDetailPage isAuthenticated={isAuthenticated} />)} />
+                <Route path="/events" element={withLayout(<EventsPage isAuthenticated={isAuthenticated} />)} />                <Route path="/events/:id" element={withLayout(<EventDetailPage isAuthenticated={isAuthenticated} />)} />
 
                 <Route
                     path="/events/:id/book"
@@ -164,12 +182,20 @@ function App() {
                         </RequireAuth>
                     }
                 />
+                <Route
+                    path="/user/settings"
+                    element={
+                        <RequireAuth isAuthenticated={isAuthenticated}>
+                            {withLayout(<UserSettingsPage />)}
+                        </RequireAuth>
+                    }
+                />
 
                 <Route
                     path="/admin/dashboard"
                     element={
                         <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
-                            {withLayout(<AdminDashboardPage isAdmin={true} />)}
+                            {withAdminLayout(<AdminDashboardPage isAdmin={true} />)}
                         </RequireAdmin>
                     }
                 />
@@ -177,7 +203,7 @@ function App() {
                     path="/admin/events"
                     element={
                         <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
-                            {withLayout(<AdminEventsPage />)}
+                            {withAdminLayout(<AdminEventsPage />)}
                         </RequireAdmin>
                     }
                 />
@@ -185,7 +211,7 @@ function App() {
                     path="/admin/events/create"
                     element={
                         <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
-                            {withLayout(<AdminEventFormPage />)}
+                            {withAdminLayout(<AdminEventFormPage />)}
                         </RequireAdmin>
                     }
                 />
@@ -193,7 +219,7 @@ function App() {
                     path="/admin/events/:id/edit"
                     element={
                         <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
-                            {withLayout(<AdminEventFormPage />)}
+                            {withAdminLayout(<AdminEventFormPage />)}
                         </RequireAdmin>
                     }
                 />
@@ -201,7 +227,7 @@ function App() {
                     path="/admin/bookings"
                     element={
                         <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
-                            {withLayout(<AdminBookingsPage />)}
+                            {withAdminLayout(<AdminBookingsPage />)}
                         </RequireAdmin>
                     }
                 />
@@ -209,7 +235,7 @@ function App() {
                     path="/admin/refund-requests"
                     element={
                         <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
-                            {withLayout(<AdminRefundsPage />)}
+                            {withAdminLayout(<AdminRefundsPage />)}
                         </RequireAdmin>
                     }
                 />
@@ -217,7 +243,23 @@ function App() {
                     path="/admin/users"
                     element={
                         <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
-                            {withLayout(<AdminUsersPage />)}
+                            {withAdminLayout(<AdminUsersPage />)}
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="/admin/users/:id"
+                    element={
+                        <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
+                            {withAdminLayout(<AdminUserDetailsPage />)}
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="/admin/settings"
+                    element={
+                        <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
+                            {withAdminLayout(<AdminSettingsPage />)}
                         </RequireAdmin>
                     }
                 />

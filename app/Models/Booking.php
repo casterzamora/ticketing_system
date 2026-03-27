@@ -44,6 +44,8 @@ class Booking extends Model
         'special_requirements',
         'user_id',
         'event_id',
+        'void_type',
+        'void_reason',
     ];
 
     /**
@@ -196,31 +198,16 @@ class Booking extends Model
     /**
      * Check if the booking is eligible for refund.
      * 
-     * This method implements the business rules for refund eligibility:
-     * - Event must be at least 48 hours away
-     * - Booking must be confirmed
-     * - No existing refund request
-     * 
-     * @return bool
+     * Industry Standard Logic:
+     * - Tickets are NON-REFUNDABLE by default.
+     * - Only eligible for refund if the event is officially CANCELLED.
      */
     public function isRefundable(): bool
     {
-        // Booking must be confirmed
-        if (!$this->isConfirmed()) {
-            return false;
-        }
-
-        // Event must be at least 48 hours away
-        if (!$this->event->isMoreThan48HoursAway()) {
-            return false;
-        }
-
-        // No existing refund request
-        if ($this->refundRequest) {
-            return false;
-        }
-
-        return true;
+        // Booking must be confirmed and event MUST be cancelled
+        return $this->isConfirmed() && 
+               $this->event->status === 'cancelled' && 
+               !$this->refundRequest;
     }
 
     /**

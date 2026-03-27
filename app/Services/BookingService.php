@@ -62,8 +62,16 @@ class BookingService
             // Create booking tickets and update inventory
             foreach ($data['tickets'] as $ticketTypeId => $quantity) {
                 if ($quantity > 0) {
-                    $ticketType = TicketType::findOrFail($ticketTypeId);
+                    // Use lockForUpdate to prevent race conditions during inventory check
+                    $ticketType = TicketType::where('id', $ticketTypeId)->lockForUpdate()->firstOrFail();
                     
+                    // Re-calculate available quantity after lock
+                    $available = $ticketType->quantity_available - $ticketType->quantity_sold;
+                    
+                    if ($available < $quantity) {
+                        throw new \Exception("Not enough tickets available for " . $ticketType->name);
+                    }
+
                     // Create booking ticket record
                     BookingTicket::create([
                         'booking_id' => $booking->id,
@@ -73,8 +81,9 @@ class BookingService
                         'total_price' => $ticketType->price * $quantity,
                     ]);
 
-                    // Update ticket type sold quantity
-                    $ticketType->increaseSoldQuantity($quantity);
+                    // Update ticket type sold quantity directly since we have the lock
+                    $ticketType->quantity_sold += $quantity;
+                    $ticketType->save();
                 }
             }
 
@@ -254,6 +263,47 @@ class BookingService
             
             return null;
         }
+    }
+
+    /**
+     * Cleanup expired pending bookings.
+     * 
+     * Releases ticket inventory for bookings that were never completed
+     * within the 1-hour expiration window.
+     * 
+     * @return int Number of cancelled bookings
+     */
+    public static function cleanupExpiredBookings(): int
+    {
+        $expired = Booking::where('status', 'pending')
+            ->where('created_at', '<', now()->subHour())
+            ->get();
+
+        $count = 0;
+        foreach ($expired as $booking) {
+            try {
+                DB::beginTransaction();
+                
+                // Release ticket quantities back to inventory
+                foreach ($booking->bookingTickets as $bt) {
+                    if ($bt->ticketType) {
+                        $bt->ticketType->decreaseSoldQuantity($bt->quantity);
+                    }
+                }
+                
+                $booking->update(['status' => 'cancelled']);
+                
+                \App\Services\ActivityLogService::log('expired', $booking, "System auto-cancelled expired booking {$booking->booking_reference}");
+                
+                DB::commit();
+                $count++;
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Log::error("Failed to cleanup booking {$booking->id}: " . $e->getMessage());
+            }
+        }
+        
+        return $count;
     }
 
     /**

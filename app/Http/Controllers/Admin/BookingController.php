@@ -27,6 +27,7 @@ class BookingController extends Controller
                 $q->where('booking_reference', 'like', "%$s%")
                   ->orWhere('customer_name', 'like', "%$s%")
                   ->orWhere('customer_email', 'like', "%$s%")
+                  ->orWhereHas('event', fn ($eq) => $eq->where('title', 'like', "%$s%"))
             );
         }
 
@@ -67,12 +68,40 @@ class BookingController extends Controller
     }
 
     /**
-     * Admin – cancel a booking.
+     * Admin – approve a booking.
      */
-    public function cancel(Booking $booking)
+    public function approve(Booking $booking)
     {
-        if (!in_array($booking->status, ['pending', 'confirmed'])) {
-            return response()->json(['message' => 'Booking cannot be cancelled.'], 422);
+        if ($booking->status !== 'pending') {
+            return response()->json(['message' => 'Only pending bookings can be approved.'], 422);
+        }
+
+        $booking->update(['status' => 'confirmed']);
+
+        // Record payment completion
+        $booking->payments()->updateOrCreate(
+            ['booking_id' => $booking->id, 'status' => 'pending'],
+            [
+                'amount'         => $booking->total_amount,
+                'payment_method' => 'admin_manual',
+                'status'         => 'successful',
+                'currency'       => 'PHP',
+                'processed_at'   => now(),
+            ]
+        );
+
+        ActivityLogService::log('confirmed', $booking, "Admin manually approved booking {$booking->booking_reference}");
+
+        return response()->json(['message' => 'Booking approved successfully.']);
+    }
+
+    /**
+     * Admin – reject a booking.
+     */
+    public function reject(Booking $booking)
+    {
+        if ($booking->status !== 'pending') {
+            return response()->json(['message' => 'Only pending bookings can be rejected.'], 422);
         }
 
         $booking->update(['status' => 'cancelled']);
@@ -82,9 +111,63 @@ class BookingController extends Controller
             $bt->ticketType?->decreaseSoldQuantity($bt->quantity);
         }
 
-        ActivityLogService::log('cancelled', $booking, "Admin cancelled booking {$booking->booking_reference}");
+        ActivityLogService::log('cancelled', $booking, "Admin rejected booking {$booking->booking_reference}");
 
-        return response()->json(['message' => 'Booking cancelled successfully.']);
+        return response()->json(['message' => 'Booking rejected successfully.']);
+    }
+
+    /**
+     * Admin – cancel (void) a booking with policy-based refund logic.
+     */
+    public function cancel(Request $request, Booking $booking)
+    {
+        if (!in_array($booking->status, ['pending', 'confirmed'])) {
+            return response()->json(['message' => 'Booking cannot be voided.'], 422);
+        }
+
+        $validated = $request->validate([
+            'void_type' => 'required|in:admin_fault,system_fault,user_fault',
+            'reason' => 'required|string|max:500'
+        ]);
+
+        $voidType = $validated['void_type'];
+        $reason = $validated['reason'];
+
+        // Apply policy
+        $shouldRefund = in_array($voidType, ['admin_fault', 'system_fault']);
+        
+        $booking->update([
+            'status' => 'cancelled',
+            'void_type' => $voidType,
+            'void_reason' => $reason
+        ]);
+
+        // Restore ticket inventory
+        foreach ($booking->bookingTickets as $bt) {
+            $bt->ticketType?->decreaseSoldQuantity($bt->quantity);
+        }
+
+        // Automatic Refund Logic (ONLY for Admin/System Faults on Confirmed Bookings)
+        if ($shouldRefund && $booking->total_amount > 0) {
+            \App\Models\RefundRequest::updateOrCreate(
+                ['booking_id' => $booking->id],
+                [
+                    'user_id' => $booking->user_id,
+                    'reason' => "ADMIN VOID ({$voidType}): " . $reason,
+                    'refund_amount' => $booking->total_amount,
+                    'status' => 'pending', // Finishes in Admin Refund dashboard
+                    'refund_method' => 'original'
+                ]
+            );
+        }
+
+        ActivityLogService::log('cancelled', $booking, "Admin voided booking {$booking->booking_reference} ({$voidType}). Reason: {$reason}");
+
+        return response()->json([
+            'message' => $shouldRefund 
+                ? 'Order voided and refund request generated successfully.' 
+                : 'Order voided successfully (No refund due to User Fault policy).'
+        ]);
     }
 
     /**

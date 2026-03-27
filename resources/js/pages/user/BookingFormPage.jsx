@@ -61,10 +61,18 @@ const BookingForm = ({ user }) => {
 
         setSubmitting(true);
         try {
+            // Only send ticket types with a quantity > 0 to avoid validation errors
+            const filteredTickets = {};
+            Object.entries(quantities).forEach(([id, qty]) => {
+                if (qty > 0) {
+                    filteredTickets[id] = qty;
+                }
+            });
+
             const payload = {
                 event_id: event.id,
                 ...form,
-                tickets: quantities,
+                tickets: filteredTickets,
             };
 
             const res = await axios.post('/api/user/bookings', payload);
@@ -214,7 +222,40 @@ const BookingForm = ({ user }) => {
                             >
                                 {submitting ? 'Processing...' : 'Confirm Booking'}
                             </button>
-                            <p className="text-[10px] text-gray-500 text-center">By booking you agree to our terms & refund policy.</p>
+                            
+                            <div className="mt-4 p-5 rounded-3xl bg-[#1b1d20] border border-white/10 shadow-inner group">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="p-2 bg-orange-500/10 rounded-full">
+                                        <svg className="w-4 h-4 text-orange-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-300">Default Non-Refundable Policy</h3>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                    <div className="flex gap-3">
+                                        <span className="text-zinc-500 text-[10px] uppercase font-mono tracking-tighter shrink-0">01.</span>
+                                        <p className="text-[10px] leading-relaxed text-zinc-400">
+                                            All sales are <span className="text-orange-300 font-bold uppercase tracking-widest text-[9px]">final</span>. Tickets are non-refundable by default.
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <span className="text-zinc-500 text-[10px] uppercase font-mono tracking-tighter shrink-0">02.</span>
+                                        <p className="text-[10px] leading-relaxed text-zinc-400">
+                                            Refunds are only issued if the event is officially <span className="text-white font-bold underline decoration-blue-500 underline-offset-2 tracking-wide">cancelled</span>.
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <span className="text-zinc-500 text-[10px] uppercase font-mono tracking-tighter shrink-0">03.</span>
+                                        <p className="text-[10px] leading-relaxed text-zinc-400 italic">
+                                            Service fees may be non-refundable. Booking confirms acceptance of these terms.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p className="text-[10px] text-gray-500 text-center mt-4">By booking you agree to our terms & conditions.</p>
                         </div>
                     </div>
                 </form>

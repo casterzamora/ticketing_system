@@ -18,13 +18,16 @@ class UserController extends Controller
         $user = $request->user();
 
         return response()->json([
-            'id'         => $user->id,
-            'name'       => $user->name,
-            'email'      => $user->email,
-            'phone'      => $user->phone,
-            'is_admin'   => $user->isAdmin(),
-            'is_active'  => $user->is_active,
-            'created_at' => $user->created_at?->toIso8601String(),
+            'id'             => $user->id,
+            'name'           => $user->name,
+            'username'       => $user->username,
+            'first_name'     => $user->first_name,
+            'last_name'      => $user->last_name,
+            'email'          => $user->email,
+            'phone'          => $user->phone,
+            'is_admin'       => $user->isAdmin(),
+            'is_active'      => $user->is_active,
+            'created_at'     => $user->created_at?->toIso8601String(),
         ]);
     }
 
@@ -50,10 +53,14 @@ class UserController extends Controller
             'data' => $users->map(fn ($u) => [
                 'id'         => $u->id,
                 'name'       => $u->name,
+                'username'   => $u->username,
+                'first_name' => $u->first_name,
+                'last_name'  => $u->last_name,
                 'email'      => $u->email,
                 'phone'      => $u->phone,
                 'is_admin'   => $u->isAdmin(),
                 'is_active'  => $u->is_active,
+                'last_login_at' => $u->last_login_at?->toIso8601String(),
                 'created_at' => $u->created_at?->toIso8601String(),
                 'bookings_count' => $u->bookings()->count(),
             ]),
@@ -88,9 +95,85 @@ class UserController extends Controller
     {
         $request->validate(['role' => 'required|in:admin,user']);
 
+        // Cannot change own role
+        if ($user->id === Auth::id()) {
+            return response()->json(['message' => 'Cannot change your own role.'], 422);
+        }
+
         $user->syncRoles([$request->role]);
 
         return response()->json(['message' => 'Role assigned.', 'role' => $request->role]);
+    }
+
+    /**
+     * Admin – view a specific user's detailed profile and logs.
+     */
+    public function show(User $user)
+    {
+        $user->loadCount('bookings');
+        
+        return response()->json([
+            'id'             => $user->id,
+            'name'           => $user->name,
+            'email'          => $user->email,
+            'phone'          => $user->phone,
+            'is_admin'       => $user->isAdmin(),
+            'is_active'      => $user->is_active,
+            'created_at'     => $user->created_at?->toIso8601String(),
+            'bookings_count' => $user->bookings_count,
+            'recent_activity' => \App\Models\ActivityLog::where('user_id', $user->id)
+                ->latest()
+                ->take(10)
+                ->get(),
+        ]);
+    }
+
+    /**
+     * Update the authenticated user's profile or an admin updates any user.
+     */
+    public function update(Request $request, User $user = null)
+    {
+        // If no user provided, assume we're updating the authenticated user
+        $targetUser = $user ?: $request->user();
+
+        $validated = $request->validate([
+            'name'             => 'required|string|max:255',
+            'username'         => 'nullable|string|max:255|unique:users,username,' . $targetUser->id,
+            'first_name'       => 'nullable|string|max:255',
+            'last_name'        => 'nullable|string|max:255',
+            'email'            => 'required|email|unique:users,email,' . $targetUser->id,
+            'phone'            => 'nullable|string|max:20',
+            'current_password' => 'nullable|required_with:new_password',
+            'new_password'     => 'nullable|min:8|confirmed',
+        ]);
+
+        $targetUser->name = $validated['name'];
+        $targetUser->username = $validated['username'] ?? $targetUser->username;
+        $targetUser->first_name = $validated['first_name'] ?? $targetUser->first_name;
+        $targetUser->last_name = $validated['last_name'] ?? $targetUser->last_name;
+        $targetUser->email = $validated['email'];
+        $targetUser->phone = $request->input('phone', $targetUser->phone);
+
+        // Security check for password change
+        if ($request->filled('new_password')) {
+            if (!\Illuminate\Support\Facades\Hash::check($request->current_password, $targetUser->password)) {
+                return response()->json(['message' => 'Current password verification failed.'], 422);
+            }
+            $targetUser->password = \Illuminate\Support\Facades\Hash::make($request->new_password);
+        }
+
+        $targetUser->name = $validated['name'];
+        $targetUser->email = $validated['email'];
+        if (isset($validated['phone'])) {
+            $targetUser->phone = $validated['phone'];
+        }
+        
+        $targetUser->save();
+
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'user'    => $targetUser
+        ]);
     }
 
     /**

@@ -141,17 +141,20 @@ class RefundRequest extends Model
             return false;
         }
 
-        // Booking must still be refundable
-        if (!$this->booking->isRefundable()) {
-            return false;
-        }
-
         // Refund amount must not exceed booking total
         if ($this->refund_amount > $this->booking->total_amount) {
             return false;
         }
 
-        return true;
+        // Admin Override: If an admin explicitly tries to approve, 
+        // they can override the default non-refundable policy.
+        // We check if the user is an admin.
+        if (auth()->check() && auth()->user()->isAdmin()) {
+            return true;
+        }
+
+        // Standard logic for non-admin requests or automated checks
+        return $this->booking->isRefundable();
     }
 
     /**

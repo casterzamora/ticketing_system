@@ -33,38 +33,55 @@ Route::get('/events/{event}', [EventController::class, 'show']);
 // API Login / Register (returns JSON for the React SPA)
 // ------------------------------------------------------------------
 Route::post('/login', function (\Illuminate\Http\Request $request) {
-    $credentials = $request->validate([
-        'email'    => 'required|email',
+    $request->validate([
+        'login'    => 'required|string',
         'password' => 'required',
     ]);
 
-    if (!\Illuminate\Support\Facades\Auth::attempt($credentials, $request->boolean('remember'))) {
+    $login = $request->input('login');
+    $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+
+    if (!\Illuminate\Support\Facades\Auth::attempt([$field => $login, 'password' => $request->password], $request->boolean('remember'))) {
         return response()->json(['message' => 'Invalid credentials.'], 401);
     }
 
     $request->session()->regenerate();
     $user = \Illuminate\Support\Facades\Auth::user();
 
+    if (!$user->isActive()) {
+        \Illuminate\Support\Facades\Auth::logout();
+        return response()->json(['message' => 'Your account has been suspended.'], 403);
+    }
+
     return response()->json([
         'id'       => $user->id,
         'name'     => $user->name,
         'email'    => $user->email,
+        'username' => $user->username,
         'is_admin' => $user->isAdmin(),
     ]);
 });
 
 Route::post('/register', function (\Illuminate\Http\Request $request) {
     $data = $request->validate([
-        'name'                  => 'required|string|max:255',
+        'first_name'            => 'required|string|max:100',
+        'last_name'             => 'required|string|max:100',
+        'username'              => 'required|string|max:100|unique:users,username|alpha_dash',
         'email'                 => 'required|email|unique:users,email',
+        'phone'                 => 'nullable|string|max:20',
         'password'              => 'required|confirmed|min:8',
+        'terms'                 => 'accepted',
     ]);
 
     $user = \App\Models\User::create([
-        'name'     => $data['name'],
-        'email'    => $data['email'],
-        'password' => \Illuminate\Support\Facades\Hash::make($data['password']),
-        'is_active' => true,
+        'name'       => $data['first_name'] . ' ' . $data['last_name'],
+        'first_name' => $data['first_name'],
+        'last_name'  => $data['last_name'],
+        'username'   => $data['username'],
+        'email'      => $data['email'],
+        'phone'      => $data['phone'] ?? null,
+        'password'   => \Illuminate\Support\Facades\Hash::make($data['password']),
+        'is_active'  => true,
     ]);
     $user->assignRole('user');
 
@@ -93,6 +110,7 @@ Route::middleware('auth')->group(function () {
 
     // Authenticated user info
     Route::get('/user', [UserController::class, 'user']);
+    Route::put('/user/profile', [UserController::class, 'update']); // Shared profile update route
 
     // Dashboard stats (role-aware)
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
@@ -112,26 +130,23 @@ Route::middleware('auth')->group(function () {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
 
-            $request->validate(['reason' => 'required|string|max:1000']);
+            $request->validate(['reason' => 'nullable|string|max:1000']);
 
             if ($booking->refundRequest) {
                 return response()->json(['message' => 'Refund request already submitted.'], 422);
             }
 
-            if (!in_array($booking->status, ['confirmed', 'pending'])) {
-                return response()->json(['message' => 'This booking cannot be refunded.'], 422);
-            }
-
-            // 48-hour rule
-            $event = $booking->event;
-            if ($event && $event->start_time->diffInHours(now(), false) > -48) {
-                return response()->json(['message' => 'Refund requests must be submitted at least 48 hours before the event.'], 422);
+            // Industry standard guard: Only refundable if event is CANCELLED
+            if (!$booking->isRefundable()) {
+                return response()->json(['message' => 'Tickets are non-refundable unless the event is officially cancelled.'], 422);
             }
 
             $refund = \App\Models\RefundRequest::create([
-                'booking_id' => $booking->id,
-                'reason'     => $request->reason,
-                'status'     => 'pending',
+                'booking_id'    => $booking->id,
+                'user_id'       => $booking->user_id,
+                'refund_amount' => $booking->total_amount,
+                'reason'        => $request->reason,
+                'status'        => 'pending',
             ]);
 
             return response()->json(['message' => 'Refund request submitted.', 'refund' => $refund], 201);
@@ -144,6 +159,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('admin')->prefix('admin')->group(function () {
 
         // Events (full CRUD)
+        Route::get('/events', [EventController::class, 'indexAdmin']);
+        Route::patch('/events/{event}/cancel', [EventController::class, 'cancel']);
         Route::apiResource('events', EventController::class)->except(['index', 'show']);
 
         // Ticket types (nested under events)
@@ -153,6 +170,8 @@ Route::middleware('auth')->group(function () {
 
         // Bookings management
         Route::get('/bookings', [AdminBookingController::class, 'index']);
+        Route::post('/bookings/{booking}/approve', [AdminBookingController::class, 'approve']);
+        Route::post('/bookings/{booking}/reject', [AdminBookingController::class, 'reject']);
         Route::post('/bookings/{booking}/cancel', [AdminBookingController::class, 'cancel']);
         Route::get('/revenue', [AdminBookingController::class, 'revenue']);
 
@@ -163,6 +182,8 @@ Route::middleware('auth')->group(function () {
 
         // User management
         Route::get('/users', [UserController::class, 'index']);
+        Route::get('/users/{user}', [UserController::class, 'show']);
+        Route::put('/users/{user}', [UserController::class, 'update']);
         Route::post('/users/{user}/toggle-active', [UserController::class, 'toggleActive']);
         Route::post('/users/{user}/assign-role', [UserController::class, 'assignRole']);
         Route::get('/users/{user}/bookings', [UserController::class, 'bookings']);

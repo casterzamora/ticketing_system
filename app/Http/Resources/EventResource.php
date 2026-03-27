@@ -24,6 +24,8 @@ class EventResource extends JsonResource
             'is_featured'   => (bool) $this->is_featured,
             'is_active'     => (bool) $this->is_active,
             'image_url'     => $this->image_url,
+            'video_url'     => $this->video_url,
+            'remaining_total' => $this->activeTicketTypes->sum(fn($t) => $t->quantity_available - $t->quantity_sold),
             'created_by'    => $this->created_by,
             'created_at'    => $this->created_at?->toIso8601String(),
             'categories'    => $this->whenLoaded('categories', fn () =>

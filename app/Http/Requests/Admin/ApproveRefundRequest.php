@@ -82,10 +82,10 @@ class ApproveRefundRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            $refundRequest = $this->route('refund_request');
+            $refundRequest = $this->route('refundRequest');
 
-            // Check if refund request can be approved
-            if (!$refundRequest->canBeApproved()) {
+            // Check if refund request exists and can be approved
+            if (!$refundRequest || !$refundRequest->canBeApproved()) {
                 $validator->errors()->add('status', 
                     'This refund request cannot be approved based on current business rules.');
             }
