@@ -46,9 +46,17 @@ RUN npm run build
 
 EXPOSE 10000
 
-# Chained command to handle bootstrapping and start the server
-# Using -n to skip migrations if DB isn't ready during initial boot
-CMD php artisan config:cache && \
-    php artisan view:cache && \
-    php artisan migrate --force && \
-    php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
+# Bootstrap env safely on Render, then start the app.
+CMD sh -lc ' \
+    export DB_URL="${DB_URL:-${DATABASE_URL:-}}"; \
+    export DB_HOST="${DB_HOST:-${MYSQLHOST:-}}"; \
+    export DB_PORT="${DB_PORT:-${MYSQLPORT:-3306}}"; \
+    export DB_DATABASE="${DB_DATABASE:-${MYSQLDATABASE:-}}"; \
+    export DB_USERNAME="${DB_USERNAME:-${MYSQLUSER:-}}"; \
+    export DB_PASSWORD="${DB_PASSWORD:-${MYSQLPASSWORD:-}}"; \
+    php artisan config:clear; \
+    php artisan config:cache; \
+    php artisan view:cache; \
+    php artisan migrate --force --graceful || true; \
+    php artisan serve --host=0.0.0.0 --port=${PORT:-10000} \
+'

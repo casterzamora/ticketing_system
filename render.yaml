@@ -27,6 +27,8 @@ services:
         value: info
       - key: DB_CONNECTION
         value: mysql
+      - key: DB_URL
+        sync: false
       - key: DB_HOST
         sync: false
       - key: DB_PORT
