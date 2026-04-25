@@ -46,23 +46,5 @@ RUN npm run build
 
 EXPOSE 10000
 
-# Bootstrap env safely on Render, then start the app.
-CMD sh -lc ' \
-    if [ -n "${DATABASE_URL:-}" ] && [ -z "${DB_URL:-}" ]; then export DB_URL="$DATABASE_URL"; fi; \
-    if [ -n "${MYSQLHOST:-}" ]; then export DB_HOST="$MYSQLHOST"; fi; \
-    if [ -n "${MYSQLPORT:-}" ]; then export DB_PORT="$MYSQLPORT"; fi; \
-    if [ -n "${MYSQLDATABASE:-}" ]; then export DB_DATABASE="$MYSQLDATABASE"; fi; \
-    if [ -n "${MYSQLUSER:-}" ]; then export DB_USERNAME="$MYSQLUSER"; fi; \
-    if [ -n "${MYSQLPASSWORD:-}" ]; then export DB_PASSWORD="$MYSQLPASSWORD"; fi; \
-    if [ "${APP_URL:-}" = "http://127.0.0.1:8000" ] || [ "${APP_URL:-}" = "http://localhost:8000" ]; then export APP_URL="https://${RENDER_EXTERNAL_HOSTNAME:-livetix-web.onrender.com}"; fi; \
-    export SESSION_DRIVER="${SESSION_DRIVER:-file}"; \
-    export CACHE_STORE="${CACHE_STORE:-file}"; \
-    export LOG_CHANNEL="${LOG_CHANNEL:-stderr}"; \
-    if [ -z "${APP_KEY:-}" ]; then export APP_KEY="$(php artisan key:generate --show --no-interaction)"; fi; \
-    php artisan config:clear; \
-    php artisan config:cache; \
-    php artisan view:cache; \
-    php artisan migrate --force --graceful || true; \
-    if [ "${AUTO_SEED:-false}" = "true" ]; then php artisan db:seed --class=Database\\Seeders\\DatabaseSeeder --force || true; fi; \
-    php artisan serve --host=0.0.0.0 --port=${PORT:-10000} \
-'
+# Standard Laravel production entrypoint for Railway
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
