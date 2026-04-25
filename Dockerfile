@@ -29,20 +29,14 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 
 WORKDIR /var/www/html
 
-COPY composer.json composer.lock ./
-# Pre-copy artisan and app for discovery scripts
-COPY artisan ./
-COPY app ./app
-COPY bootstrap ./bootstrap
-COPY config ./config
-COPY database ./database
+# Copy all files first to simplify the build and ensure artisan scripts work
+COPY . .
 
+# Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
-COPY package.json package-lock.json ./
+# Install Node dependencies and build assets
 RUN npm ci --no-audit --no-fund
-
-COPY . .
 RUN npm run build
 
 EXPOSE 10000
