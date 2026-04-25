@@ -10,12 +10,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig-dev \
     libxml2-dev \
     libicu-dev \
+    libpq-dev \
     && docker-php-ext-install \
     bcmath \
     intl \
     mbstring \
     pdo \
     pdo_mysql \
+    pdo_pgsql \
     pcntl \
     zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -46,5 +48,18 @@ RUN npm run build
 
 EXPOSE 10000
 
-# Standard Laravel production entrypoint for Railway
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
+# Standard Laravel production entrypoint for Render (Supabase/Postgres)
+CMD sh -lc ' \
+    if [ -n "${DATABASE_URL:-}" ]; then \
+        export DB_CONNECTION=pgsql; \
+        # Extract components from DATABASE_URL (postgres://user:pass@host:port/db) \
+        # This is a robust way to handle the Supabase connection string \
+        export DB_URL="$DATABASE_URL"; \
+    fi; \
+    export SESSION_DRIVER="${SESSION_DRIVER:-file}"; \
+    export CACHE_STORE="${CACHE_STORE:-file}"; \
+    export LOG_CHANNEL="${LOG_CHANNEL:-stderr}"; \
+    php artisan config:clear; \
+    php artisan migrate --force --graceful || true; \
+    php artisan serve --host=0.0.0.0 --port=${PORT:-10000} \
+'
