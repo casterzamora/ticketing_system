@@ -70,14 +70,16 @@ Notes:
 
 This repository includes [render.yaml](render.yaml) with:
 
-- A web service (`livetix-web`)
-- A worker service (`livetix-worker`) for queue jobs
+- A web service (`livetix-web`) using Docker runtime
+
+The default blueprint is web-only so it can deploy on Render plans that do not allow background workers.
+When your plan supports workers, add a separate `worker` service and switch `QUEUE_CONNECTION` to `database`.
 
 ### Render Steps
 
 1. Push repository to GitHub.
 2. In Render, create Blueprint from the repo.
-3. Add a PostgreSQL instance in Render.
+3. Prepare your managed MySQL database.
 4. Set environment variable values:
 	- `APP_KEY=<base64:...>` (generate once via `php artisan key:generate --show`)
 	- `APP_URL=https://<your-render-domain>`
@@ -93,7 +95,12 @@ This repository includes [render.yaml](render.yaml) with:
 - `APP_FORCE_HTTPS=true`
 - `SESSION_SECURE_COOKIE=true`
 - `SESSION_DRIVER=database`
-- `QUEUE_CONNECTION=database`
+- `QUEUE_CONNECTION=sync` (web-only fallback)
+
+Set these database values for MySQL:
+
+- `DB_CONNECTION=mysql`
+- `DB_PORT=3306`
 
 ## Operations Checklist
 
@@ -103,7 +110,7 @@ After deployment:
 2. Confirm login/logout and CSRF-protected forms.
 3. Run one booking in PayMongo test mode.
 4. Confirm booking status updates and tickets are issued.
-5. Confirm queue worker is active (notifications/jobs process).
+5. If `QUEUE_CONNECTION=sync`, expect notifications/jobs to run inline in the web request.
 
 ## Build and Quality Commands
 
