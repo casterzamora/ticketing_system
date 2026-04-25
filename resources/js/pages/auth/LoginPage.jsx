@@ -33,7 +33,8 @@ const Login = () => {
             } else if (err.response?.status === 404) {
                 setError('Login endpoint not found. Please verify backend routes are running.');
             } else {
-                setError('Login failed. Please check your connection and try again.');
+                const apiMessage = err.response?.data?.message;
+                setError(apiMessage || 'Login failed. Please check your connection and try again.');
             }
         } finally {
             setLoading(false);

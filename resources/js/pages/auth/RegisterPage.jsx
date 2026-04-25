@@ -37,11 +37,16 @@ const Register = () => {
             }
         } catch (err) {
             if (err.response?.status === 422) {
-                setErrors(err.response.data.errors ?? {});
+                const validationErrors = err.response.data.errors ?? {};
+                setErrors(validationErrors);
+                if (!Object.keys(validationErrors).length && err.response.data?.message) {
+                    setError(err.response.data.message);
+                }
             } else if (err.response?.status === 419) {
                 setError('Session expired. Please refresh the page and try again.');
             } else {
-                setError('Registration failed. Please try again.');
+                const apiMessage = err.response?.data?.message;
+                setError(apiMessage || 'Registration failed. Please try again.');
             }
         } finally {
             setLoading(false);

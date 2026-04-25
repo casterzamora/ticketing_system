@@ -55,9 +55,9 @@ CMD sh -lc ' \
     if [ -n "${MYSQLUSER:-}" ]; then export DB_USERNAME="$MYSQLUSER"; fi; \
     if [ -n "${MYSQLPASSWORD:-}" ]; then export DB_PASSWORD="$MYSQLPASSWORD"; fi; \
     if [ "${APP_URL:-}" = "http://127.0.0.1:8000" ] || [ "${APP_URL:-}" = "http://localhost:8000" ]; then export APP_URL="https://${RENDER_EXTERNAL_HOSTNAME:-livetix-web.onrender.com}"; fi; \
-    export SESSION_DRIVER="file"; \
-    export CACHE_STORE="file"; \
-    export LOG_CHANNEL="stderr"; \
+    export SESSION_DRIVER="${SESSION_DRIVER:-file}"; \
+    export CACHE_STORE="${CACHE_STORE:-file}"; \
+    export LOG_CHANNEL="${LOG_CHANNEL:-stderr}"; \
     if [ -z "${APP_KEY:-}" ]; then export APP_KEY="$(php artisan key:generate --show --no-interaction)"; fi; \
     php artisan config:clear; \
     php artisan config:cache; \
