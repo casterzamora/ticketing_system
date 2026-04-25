@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\RefundRequest;
 use App\Models\TicketType;
 use App\Models\ActivityLog;
+use App\Services\RefundPolicyService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -57,6 +58,7 @@ class BookingService
                 'total_tickets' => $data['total_tickets'],
                 'total_amount' => $data['total_amount'],
                 'status' => 'pending',
+                'expires_at' => now()->addMinutes(15), // Lock inventory for 15 minutes
             ]);
 
             // Create booking tickets and update inventory
@@ -104,6 +106,48 @@ class BookingService
     }
 
     /**
+     * IDEMPOTENT TICKET GENERATION
+     * 
+     * This method ensures tickets are only generated once for a paid booking.
+     * It creates individual entries with unique QR payloads for each physical seat.
+     */
+    public static function generatePaidTickets(\App\Models\Booking $booking): bool
+    {
+        if ($booking->status !== 'confirmed' || !$booking->paid_at) {
+            return false;
+        }
+
+        return DB::transaction(function () use ($booking) {
+            // Already generated?
+            if (\App\Models\Ticket::where('booking_id', $booking->id)->exists()) {
+                \Log::info("Tickets already exist for Booking: {$booking->id}. Skipping generation.");
+                return true; 
+            }
+
+            foreach ($booking->bookingTickets as $bt) {
+                for ($i = 0; $i < $bt->quantity; $i++) {
+                    $uniqueCode = 'TKT-' . Str::upper(Str::random(5)) . '-' . Str::upper(Str::random(5));
+                    
+                    \App\Models\Ticket::create([
+                        'booking_id'      => $booking->id,
+                        'event_id'        => $booking->event_id,
+                        'ticket_type_id'  => $bt->ticket_type_id,
+                        'ticket_code'     => $uniqueCode,
+                        'qr_payload'      => encrypt([
+                            'code'  => $uniqueCode,
+                            'event' => $booking->event_id,
+                            'ref'   => $booking->booking_reference
+                        ])
+                    ]);
+                }
+            }
+            
+            \Log::info("Generated " . $booking->total_tickets . " tickets for Booking: {$booking->id}");
+            return true;
+        });
+    }
+
+    /**
      * Process payment for a booking.
      * 
      * This method handles payment processing and booking confirmation.
@@ -122,7 +166,7 @@ class BookingService
             $payment = Payment::create([
                 'booking_id' => $booking->id,
                 'amount' => $booking->total_amount,
-                'currency' => 'USD',
+                'currency' => 'PHP',
                 'status' => 'pending',
                 'payment_method' => $paymentMethod,
                 'gateway' => self::getPaymentGateway($paymentMethod),
@@ -234,8 +278,8 @@ class BookingService
     public static function createRefundRequest(Booking $booking, string $reason): ?RefundRequest
     {
         try {
-            // Check if booking is refundable
-            if (!$booking->isRefundable()) {
+            $policy = RefundPolicyService::evaluateCustomerRequest($booking);
+            if (!$policy['eligible']) {
                 return null;
             }
 
@@ -244,13 +288,13 @@ class BookingService
                 return null;
             }
 
-            // Create refund request
-            $refundRequest = RefundRequest::create([
-                'booking_id' => $booking->id,
-                'refund_amount' => $booking->total_amount,
-                'reason' => $reason,
-                'status' => 'pending',
-            ]);
+            // Policy-first flow: write directly to refunds ledger as approved.
+            $refundRequest = RefundPolicyService::approveToLedger(
+                $booking,
+                trim($reason) !== '' ? $reason : 'Automatic policy refund',
+                null,
+                'original_source'
+            );
 
             return $refundRequest;
 
@@ -276,20 +320,22 @@ class BookingService
     public static function cleanupExpiredBookings(): int
     {
         $expired = Booking::where('status', 'pending')
-            ->where('created_at', '<', now()->subHour())
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now())
             ->get();
 
         $count = 0;
         foreach ($expired as $booking) {
             try {
                 DB::beginTransaction();
-                
-                // Release ticket quantities back to inventory
-                foreach ($booking->bookingTickets as $bt) {
-                    if ($bt->ticketType) {
-                        $bt->ticketType->decreaseSoldQuantity($bt->quantity);
-                    }
+
+                // Skip auto-cancel if payment was already captured while status lagged behind.
+                if ($booking->successfulPayment()) {
+                    DB::rollBack();
+                    continue;
                 }
+                
+                RefundPolicyService::releaseInventoryForBooking($booking);
                 
                 $booking->update(['status' => 'cancelled']);
                 

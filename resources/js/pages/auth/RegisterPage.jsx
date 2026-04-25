@@ -32,6 +32,7 @@ const Register = () => {
             await axios.get('/api/csrf-cookie');
             const response = await axios.post('/api/register', form);
             if (response.data?.email) {
+                localStorage.setItem('user', JSON.stringify(response.data));
                 window.location.href = '/user/dashboard';
             }
         } catch (err) {

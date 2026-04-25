@@ -7,7 +7,6 @@ const AdminUserDetails = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState('');
     const [formData, setFormData] = useState({
         name: '',
@@ -39,22 +38,6 @@ const AdminUserDetails = () => {
         fetchUser();
     }, [id]);
 
-    const handleUpdate = async (e) => {
-        e.preventDefault();
-        setSaving(true);
-        setMessage('');
-        try {
-            await axios.put(`/api/admin/users/${id}`, formData);
-            setMessage('Profile updated successfully.');
-            // Refresh local user data
-            const res = await axios.get(`/api/admin/users/${id}`);
-            setUser(res.data);
-        } catch (err) {
-            setMessage(err.response?.data?.message || 'Failed to update profile.');
-        } finally {
-            setSaving(false);
-        }
-    };
 
     if (loading) {
         return (
@@ -124,7 +107,7 @@ const AdminUserDetails = () => {
                     <div className="lg:col-span-1">
                         <div className="bg-zinc-900/40 border border-zinc-800/50 p-8 rounded-3xl backdrop-blur-sm sticky top-8">
                             <h2 className="text-[10px] tracking-[0.3em] font-black text-white uppercase mb-8 pb-4 border-b border-zinc-800">USER INFORMATION</h2>
-                            <form className="space-y-6">
+                            <div className="space-y-6">
                                 <div>
                                     <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Full Name</label>
                                     <input
@@ -207,7 +190,7 @@ const AdminUserDetails = () => {
                                         Admins may exclusively manage system permissions and operational status. Profile identity must be managed by the owner.
                                     </p>
                                 </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
 

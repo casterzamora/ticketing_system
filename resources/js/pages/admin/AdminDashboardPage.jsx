@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 
@@ -10,34 +10,37 @@ const Dashboard = ({ isAdmin }) => {
         recentBookings: [],
         revenue: 0,
         grossRevenue: 0,
-        refundedAmount: 0
+        refundedAmount: 0,
+        lowStockAlerts: 0,
     });
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const response = await axios.get('/api/dashboard/stats');
-                if (response?.data) {
-                    setStats({
-                        events: response.data.events ?? 0,
-                        bookings: response.data.bookings_total ?? 0,
-                        refunds: response.data.refunds_pending_count ?? 0,
-                        recentBookings: response.data.recent_bookings ?? [],
-                        revenue: response.data.revenue ?? 0,
-                        grossRevenue: response.data.gross_revenue ?? 0,
-                        refundedAmount: response.data.refunded_amount ?? 0
-                    });
-                }
-            } catch (error) {
-                console.error('Error fetching stats:', error);
-            } finally {
-                setLoading(false);
+    const fetchStats = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await axios.get('/api/dashboard/stats');
+            if (response?.data) {
+                setStats({
+                    events: response.data.events ?? 0,
+                    bookings: response.data.bookings_total ?? 0,
+                    refunds: response.data.refunds_total_count ?? response.data.refunds_pending_count ?? 0,
+                    recentBookings: response.data.recent_bookings ?? [],
+                    revenue: response.data.revenue ?? 0,
+                    grossRevenue: response.data.gross_revenue ?? 0,
+                    refundedAmount: response.data.refunded_amount ?? 0,
+                    lowStockAlerts: response.data.low_stock_alerts_count ?? 0,
+                });
             }
-        };
+        } catch (error) {
+            console.error('Error fetching stats:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
+    useEffect(() => {
         fetchStats();
-    }, [isAdmin]);
+    }, [isAdmin, fetchStats]);
 
     if (loading) {
         return (
@@ -75,15 +78,26 @@ const Dashboard = ({ isAdmin }) => {
                   glow: 'shadow-blue-500/10'
               },
               {
-                  label: 'Pending Refunds',
+                  label: 'Refund Ledger',
                   value: stats.refunds,
-                  sub: 'Action Required',
+                  sub: 'Recorded Entries',
                   icon: (
                       <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                   ),
                   glow: 'shadow-amber-500/10'
+              },
+              {
+                  label: 'Low Stock Alerts',
+                  value: stats.lowStockAlerts,
+                  sub: 'Inventory Watchlist',
+                  icon: (
+                      <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z" />
+                      </svg>
+                  ),
+                  glow: 'shadow-red-500/10'
               },
           ]
         : [
@@ -132,7 +146,11 @@ const Dashboard = ({ isAdmin }) => {
                                 + Create Event
                             </Link>
                         )}
-                        <button className="p-3 bg-zinc-900 border border-zinc-800 rounded-xl hover:border-zinc-600 transition-colors">
+                        <button
+                            onClick={fetchStats}
+                            className="p-3 bg-zinc-900 border border-zinc-800 rounded-xl hover:border-zinc-600 transition-colors"
+                            title="Refresh dashboard"
+                        >
                             <svg className="w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
@@ -204,7 +222,7 @@ const Dashboard = ({ isAdmin }) => {
                             ) : (
                                 <div className="py-20 text-center border border-dashed border-zinc-800 rounded-3xl">
                                     <p className="text-[11px] tracking-[0.2em] uppercase text-zinc-600 font-bold mb-2">No Recent Transactions</p>
-                                    <p className="text-[9px] text-zinc-700 uppercase tracking-widest">Waiting for live data...</p>
+                                    <p className="text-[9px] text-zinc-700 uppercase tracking-widest">Transactions will appear here as bookings are processed.</p>
                                 </div>
                             )}
                         </div>
@@ -220,7 +238,8 @@ const Dashboard = ({ isAdmin }) => {
                                 {[
                                     { to: '/admin/events', label: 'Catalog', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
                                     { to: '/admin/bookings', label: 'Bookings', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-                                    { to: '/admin/refund-requests', label: 'Refunds', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
+                                    { to: '/admin/refunds', label: 'Refunds', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
+                                    { to: '/admin/notifications', label: 'Notifications', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
                                     { to: '/admin/users', label: 'Users', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' }
                                 ].map((item) => (
                                     <Link 

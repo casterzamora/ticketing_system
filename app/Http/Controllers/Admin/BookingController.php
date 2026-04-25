@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\RefundRequest;
 use App\Models\User;
 use App\Services\ActivityLogService;
+use App\Services\RefundPolicyService;
 use Illuminate\Http\Request;
 
 class BookingController extends Controller
@@ -19,6 +20,10 @@ class BookingController extends Controller
     public function index(Request $request)
     {
         $query = Booking::with(['user', 'event', 'payments', 'refundRequest'])
+            ->withCount('tickets')
+            ->withCount([
+                'tickets as tickets_checked_in_count' => fn ($q) => $q->whereNotNull('checked_in_at')
+            ])
             ->latest();
 
         if ($request->filled('search')) {
@@ -32,7 +37,19 @@ class BookingController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            if (in_array($request->status, ['pending_payment', 'paid', 'failed', 'expired'])) {
+                $paymentStatus = match($request->status) {
+                    'pending_payment' => 'pending',
+                    'paid' => 'successful',
+                    'failed' => 'failed',
+                    'expired' => 'expired',
+                };
+                $query->whereHas('payments', function($q) use ($paymentStatus) {
+                    $q->where('status', $paymentStatus);
+                });
+            } else {
+                $query->where('status', $request->status);
+            }
         }
 
         if ($request->filled('event_id')) {
@@ -57,6 +74,9 @@ class BookingController extends Controller
                     'user'              => $b->user  ? ['id' => $b->user->id, 'name' => $b->user->name, 'email' => $b->user->email] : null,
                     'payment_status'    => $b->payments->first()?->status ?? 'none',
                     'refund_status'     => $b->refundRequest?->status,
+                    'checked_in_at'     => $b->checked_in_at?->toIso8601String(),
+                    'issued_tickets'    => (int) ($b->tickets_count ?? 0),
+                    'checked_in_tickets'=> (int) ($b->tickets_checked_in_count ?? 0),
                 ]),
                 'total'        => $bookings->total(),
                 'current_page' => $bookings->currentPage(),
@@ -135,6 +155,7 @@ class BookingController extends Controller
 
         // Apply policy
         $shouldRefund = in_array($voidType, ['admin_fault', 'system_fault']);
+        $hasSuccessfulPayment = (bool) $booking->successfulPayment();
         
         $booking->update([
             'status' => 'cancelled',
@@ -142,31 +163,53 @@ class BookingController extends Controller
             'void_reason' => $reason
         ]);
 
-        // Restore ticket inventory
-        foreach ($booking->bookingTickets as $bt) {
-            $bt->ticketType?->decreaseSoldQuantity($bt->quantity);
-        }
-
-        // Automatic Refund Logic (ONLY for Admin/System Faults on Confirmed Bookings)
-        if ($shouldRefund && $booking->total_amount > 0) {
-            \App\Models\RefundRequest::updateOrCreate(
-                ['booking_id' => $booking->id],
-                [
-                    'user_id' => $booking->user_id,
-                    'reason' => "ADMIN VOID ({$voidType}): " . $reason,
-                    'refund_amount' => $booking->total_amount,
-                    'status' => 'pending', // Finishes in Admin Refund dashboard
-                    'refund_method' => 'original'
-                ]
+        // Automatic refund only for admin/system fault with a successful captured payment.
+        if ($shouldRefund && $hasSuccessfulPayment) {
+            RefundPolicyService::approveToLedger(
+                $booking,
+                "ADMIN VOID ({$voidType}): {$reason}",
+                auth()->id(),
+                'original'
             );
+        } else {
+            RefundPolicyService::releaseInventoryForBooking($booking);
         }
 
         ActivityLogService::log('cancelled', $booking, "Admin voided booking {$booking->booking_reference} ({$voidType}). Reason: {$reason}");
 
+        $message = 'Order voided successfully (No refund due to User Fault policy)';
+        if ($shouldRefund && $hasSuccessfulPayment) {
+            $message = 'Order voided and refund approved per policy. Recorded in refunds ledger.';
+        } elseif ($shouldRefund && !$hasSuccessfulPayment) {
+            $message = 'Order voided. No refund created because no successful payment was found.';
+        }
+
         return response()->json([
-            'message' => $shouldRefund 
-                ? 'Order voided and refund request generated successfully.' 
-                : 'Order voided successfully (No refund due to User Fault policy).'
+            'message' => $message
+        ]);
+    }
+
+    /**
+     * Admin – toggle check-in status.
+     */
+    public function toggleCheckIn(Booking $booking)
+    {
+        if ($booking->status !== 'confirmed') {
+            return response()->json(['message' => 'Attendance can only be recorded for confirmed bookings.'], 422);
+        }
+
+        $isCheckedIn = !is_null($booking->checked_in_at);
+        
+        $booking->update([
+            'checked_in_at' => $isCheckedIn ? null : now()
+        ]);
+
+        $action = $isCheckedIn ? 'reverted' : 'recorded';
+        ActivityLogService::log('updated', $booking, "Admin {$action} attendance for booking {$booking->booking_reference}");
+
+        return response()->json([
+            'message' => $isCheckedIn ? 'Check-in reverted.' : 'Check-in successful.',
+            'checked_in_at' => $booking->checked_in_at
         ]);
     }
 

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\Booking;
+use App\Models\TicketType;
+use App\Services\SystemSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -53,17 +55,25 @@ class DashboardController extends Controller
                 ->get()
                 ->map(fn($e) => ['title' => $e->title, 'count' => $e->bookings_count]);
 
+            $thresholdPct = SystemSettingsService::fixedLowStockThresholdPct();
+            $lowStockAlertsCount = TicketType::query()
+                ->where('quantity_available', '>', 0)
+                ->whereRaw('(quantity_sold * 100 / quantity_available) >= ?', [$thresholdPct])
+                ->count();
+
             return response()->json([
                 'events' => Event::count(),
                 'bookings_total' => $ticketsSold,
                 'bookings_pending_count' => Booking::where('status', 'pending')->count(),
                 'refunds_pending_count' => \App\Models\RefundRequest::where('status', 'pending')->count(),
+                'refunds_total_count' => \App\Models\RefundRequest::count(),
                 'revenue' => (float) $netRevenue,
                 'gross_revenue' => (float) $grossRevenue,
                 'refunded_amount' => (float) $refundedAmount,
                 'status_stats' => $statusStats,
                 'top_events' => $topEvents,
-                'recent_bookings' => $recentBookings
+                'recent_bookings' => $recentBookings,
+                'low_stock_alerts_count' => $lowStockAlertsCount,
             ]);
         } else {
             // Customer statistics

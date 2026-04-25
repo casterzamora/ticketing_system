@@ -78,7 +78,12 @@ const BookingHistory = () => {
                                         style={{ backgroundImage: b.event?.image_url ? `url(${b.event.image_url})` : 'none', backgroundColor: '#16181b' }}
                                     />
                                     <div className="flex-1 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                        <div>
+                                        <div className="relative">
+                                            {b.event?.status === 'rescheduled' && (
+                                                <div className="mb-2 inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded text-[9px] font-black uppercase tracking-widest">
+                                                    <span>Re-scheduled</span>
+                                                </div>
+                                            )}
                                             <p className="text-sm font-semibold text-white">{b.event?.title ?? 'Unknown Event'}</p>
                                             <p className="text-[11px] text-gray-400 mt-0.5">
                                                 {b.event?.venue} &bull; {startDate ? startDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBA'}

@@ -31,6 +31,12 @@ class AdminMiddleware
     {
         // Check if user is authenticated
         if (!auth()->check()) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Unauthenticated.',
+                ], 401);
+            }
+
             return redirect()->route('login')
                 ->with('error', 'You must be logged in to access this page.');
         }
@@ -49,6 +55,12 @@ class AdminMiddleware
                 ]
             );
 
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Forbidden. Admin access required.',
+                ], 403);
+            }
+
             return redirect()->route('user.dashboard')
                 ->with('error', 'You do not have permission to access the admin area.');
         }
@@ -56,6 +68,12 @@ class AdminMiddleware
         // Check if user account is active
         if (!auth()->user()->isActive()) {
             auth()->logout();
+
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Your account has been deactivated. Please contact support.',
+                ], 403);
+            }
             
             return redirect()->route('login')
                 ->with('error', 'Your account has been deactivated. Please contact support.');

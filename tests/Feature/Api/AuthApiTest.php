@@ -15,7 +15,7 @@ class AuthApiTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/login', [
-            'email' => 'test@example.com',
+            'login' => 'test@example.com',
             'password' => 'password',
         ]);
 
@@ -32,7 +32,7 @@ class AuthApiTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/login', [
-            'email' => 'test@example.com',
+            'login' => 'test@example.com',
             'password' => 'wrong',
         ]);
 
@@ -43,10 +43,13 @@ class AuthApiTest extends TestCase
     public function test_user_can_register_via_api(): void
     {
         $response = $this->postJson('/api/register', [
-            'name' => 'John Doe',
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'username' => 'john_doe',
             'email' => 'john@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'terms' => true,
         ]);
 
         $response->assertStatus(201);

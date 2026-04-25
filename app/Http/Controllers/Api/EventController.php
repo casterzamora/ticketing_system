@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
+use App\Services\DomainNotificationService;
+use App\Services\RefundPolicyService;
+use App\Services\SystemSettingsService;
 use Illuminate\Http\Request;
 
 class EventController extends Controller
@@ -71,7 +74,7 @@ class EventController extends Controller
             'base_price' => 'required|numeric|min:0',
             'image_url' => 'nullable|url',
             'video_url' => 'nullable|url',
-            'status' => 'required|in:draft,published,cancelled,completed',
+            'status' => 'required|in:draft,published,cancelled,completed,rescheduled',
             'is_featured' => 'boolean',
             'is_active' => 'boolean',
             'categories' => 'nullable|array',
@@ -120,7 +123,7 @@ class EventController extends Controller
             'base_price' => 'sometimes|numeric|min:0',
             'image_url' => 'sometimes|nullable|url',
             'video_url' => 'sometimes|nullable|url',
-            'status' => 'sometimes|in:draft,published,cancelled,completed',
+            'status' => 'sometimes|in:draft,published,cancelled,completed,rescheduled',
             'is_featured' => 'sometimes|boolean',
             'is_active' => 'sometimes|boolean',
             'categories' => 'sometimes|array',
@@ -143,18 +146,19 @@ class EventController extends Controller
                 foreach ($bookings as $booking) {
                     $booking->update(['status' => 'cancelled']);
                     
-                    // Automatically create refund requests for confirmed paid bookings
-                    if ($booking->total_amount > 0) {
-                        \App\Models\RefundRequest::firstOrCreate(
-                            ['booking_id' => $booking->id],
-                            [
-                                'user_id' => $booking->user_id,
-                                'reason' => 'Event cancelled by administrator.',
-                                'refund_amount' => $booking->total_amount,
-                                'status' => 'pending' // Admin still needs to process the actual payment refund
-                            ]
+                    // Automatically write approved refunds to ledger only for successfully paid bookings.
+                    if ($booking->successfulPayment()) {
+                        RefundPolicyService::approveToLedger(
+                            $booking,
+                            'AUTOMATIC REFUND: Event cancelled by administrator.',
+                            auth()->id(),
+                            'original_source'
                         );
+                    } else {
+                        RefundPolicyService::releaseInventoryForBooking($booking);
                     }
+
+                    DomainNotificationService::eventCancelled($booking);
 
                     // Optional: Trigger notification to user
                     // \App\Notifications\EventCancelledNotification::send($booking->user, $event);
@@ -173,6 +177,95 @@ class EventController extends Controller
         }
 
         return new EventResource($event);
+    }
+
+    /**
+     * Reschedule the event to a new date and time.
+     */
+    public function reschedule(Request $request, Event $event)
+    {
+        $request->validate([
+            'new_start_time' => 'required|date|after:now',
+            'new_end_time' => 'required|date|after:new_start_time',
+            'refund_deadline_hours' => 'nullable|integer|min:24|max:168',
+        ]);
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            // Store original time for history if not already set
+            $originalStartTime = $event->original_start_time ?? $event->start_time;
+
+            $previousStart = \Carbon\Carbon::parse($originalStartTime);
+            $nextStart = \Carbon\Carbon::parse($request->new_start_time);
+            $shiftHours = max(1, abs($previousStart->diffInHours($nextStart, false)));
+            $adaptiveWindowHours = (int) max(24, min(168, (int) ceil($shiftHours * 0.5)));
+            
+            // Calculate refund deadline
+            $refundWindowHours = (int) ($request->refund_deadline_hours
+                ?? $adaptiveWindowHours);
+            $refundDeadline = now()->addHours($refundWindowHours);
+
+            // Update event times
+            $event->update([
+                'start_time' => $request->new_start_time,
+                'end_time' => $request->new_end_time,
+                'original_start_time' => $originalStartTime,
+                'rescheduled_at' => now(),
+                'status' => 'rescheduled',
+                'refund_deadline' => $refundDeadline,
+            ]);
+
+            $affectedBookings = $event->bookings()
+                ->where('status', 'confirmed')
+                ->get();
+
+            // Set all confirmed bookings to 'pending' response status
+            $event->bookings()->where('status', 'confirmed')->update([
+                'reschedule_response' => 'pending'
+            ]);
+
+            $affectedBookings->each(function ($booking) use ($originalStartTime, $refundDeadline, $refundWindowHours) {
+                DomainNotificationService::eventRescheduled(
+                    $booking,
+                    [
+                        'old_schedule' => \Carbon\Carbon::parse($originalStartTime)->toDateTimeString(),
+                        'new_schedule' => $booking->event?->start_time?->toDateTimeString(),
+                        'decision_deadline' => $refundDeadline->toDateTimeString(),
+                        'decision_window_hours' => $refundWindowHours,
+                        'policy_default_if_no_response' => 'Ticket remains valid for the new schedule.',
+                    ]
+                );
+            });
+
+            // Log activity
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'rescheduled',
+                'subject_type' => 'App\Models\Event',
+                'subject_id' => $event->id,
+                'description' => "Event '{$event->title}' moved from {$originalStartTime} to {$request->new_start_time}. Refund window closes at {$refundDeadline}.",
+                'old_values' => json_encode(['start_time' => $originalStartTime]),
+                'new_values' => json_encode([
+                    'start_time' => $request->new_start_time,
+                    'refund_deadline' => $refundDeadline,
+                    'decision_window_hours' => $refundWindowHours,
+                ]),
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return new EventResource($event->fresh());
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error rescheduling event: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -209,18 +302,19 @@ class EventController extends Controller
             foreach ($bookings as $booking) {
                 $booking->update(['status' => 'cancelled']);
                 
-                // Automatically create refund requests for confirmed paid bookings
-                if ($booking->total_amount > 0) {
-                    \App\Models\RefundRequest::firstOrCreate(
-                        ['booking_id' => $booking->id],
-                        [
-                            'user_id' => $booking->user_id,
-                            'reason' => 'Event cancelled by administrator.',
-                            'refund_amount' => $booking->total_amount,
-                            'status' => 'pending'
-                        ]
+                // Automatically write approved refunds to ledger only for successfully paid bookings.
+                if ($booking->successfulPayment()) {
+                    RefundPolicyService::approveToLedger(
+                        $booking,
+                        'AUTOMATIC REFUND: Event cancelled by administrator.',
+                        auth()->id(),
+                        'original_source'
                     );
+                } else {
+                    RefundPolicyService::releaseInventoryForBooking($booking);
                 }
+
+                DomainNotificationService::eventCancelled($booking);
             }
 
             // Log the administrative action

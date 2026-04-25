@@ -46,6 +46,9 @@ class Event extends Model
         'max_capacity',
         'base_price',
         'status',
+        'original_start_time',
+        'rescheduled_at',
+        'refund_deadline',
         'is_featured',
         'is_active',
         'image_url',
@@ -61,6 +64,9 @@ class Event extends Model
     protected $casts = [
         'start_time' => 'datetime',
         'end_time' => 'datetime',
+        'original_start_time' => 'datetime',
+        'rescheduled_at' => 'datetime',
+        'refund_deadline' => 'datetime',
         'base_price' => 'decimal:2',
         'max_capacity' => 'integer',
         'is_featured' => 'boolean',
@@ -280,14 +286,14 @@ class Event extends Model
     }
 
     /**
-     * Scope a query to only include published events.
+     * Scope a query to only include published or rescheduled events.
      * 
      * This scope filters events to show only those that are published
-     * and visible to customers.
+     * or rescheduled and visible to customers.
      */
     public function scopePublished($query)
     {
-        return $query->where('status', 'published');
+        return $query->whereIn('status', ['published', 'rescheduled']);
     }
 
     /**

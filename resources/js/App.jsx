@@ -17,15 +17,21 @@ import BookingHistoryPage from './pages/user/BookingHistoryPage';
 import BookingDetailPage from './pages/user/BookingDetailPage';
 import BookingFormPage from './pages/user/BookingFormPage';
 import UserSettingsPage from './pages/user/UserSettingsPage';
+import CheckoutPage from './pages/user/CheckoutPage';
+import UserNotificationsPage from './pages/user/UserNotificationsPage';
 
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminEventsPage from './pages/admin/AdminEventsPage';
 import AdminEventFormPage from './pages/admin/AdminEventFormPage';
 import AdminBookingsPage from './pages/admin/AdminBookingsPage';
+import AdminInventoryPage from './pages/admin/AdminInventoryPage';
 import AdminRefundsPage from './pages/admin/AdminRefundsPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminUserDetailsPage from './pages/admin/AdminUserDetailsPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
+import AdminQRScanner from './pages/admin/AdminQRScanner';
+import AdminReportsPage from './pages/admin/AdminReportsPage';
+import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
 
 const RequireAuth = ({ isAuthenticated, children }) =>
     isAuthenticated ? children : <Navigate to="/login" replace />;
@@ -183,10 +189,26 @@ function App() {
                     }
                 />
                 <Route
+                    path="/user/checkout/:id"
+                    element={
+                        <RequireAuth isAuthenticated={isAuthenticated}>
+                            {withLayout(<CheckoutPage />)}
+                        </RequireAuth>
+                    }
+                />
+                <Route
                     path="/user/settings"
                     element={
                         <RequireAuth isAuthenticated={isAuthenticated}>
                             {withLayout(<UserSettingsPage />)}
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/user/notifications"
+                    element={
+                        <RequireAuth isAuthenticated={isAuthenticated}>
+                            {withLayout(<UserNotificationsPage />)}
                         </RequireAuth>
                     }
                 />
@@ -232,12 +254,24 @@ function App() {
                     }
                 />
                 <Route
-                    path="/admin/refund-requests"
+                    path="/admin/inventory"
+                    element={
+                        <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
+                            {withAdminLayout(<AdminInventoryPage />)}
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="/admin/refunds"
                     element={
                         <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
                             {withAdminLayout(<AdminRefundsPage />)}
                         </RequireAdmin>
                     }
+                />
+                <Route
+                    path="/admin/refund-requests"
+                    element={<Navigate to="/admin/refunds" replace />}
                 />
                 <Route
                     path="/admin/users"
@@ -260,6 +294,30 @@ function App() {
                     element={
                         <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
                             {withAdminLayout(<AdminSettingsPage />)}
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="/admin/scanner"
+                    element={
+                        <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
+                            {withAdminLayout(<AdminQRScanner />)}
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="/admin/reports"
+                    element={
+                        <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
+                            {withAdminLayout(<AdminReportsPage />)}
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="/admin/notifications"
+                    element={
+                        <RequireAdmin isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
+                            {withAdminLayout(<AdminNotificationsPage />)}
                         </RequireAdmin>
                     }
                 />

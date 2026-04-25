@@ -10,77 +10,68 @@ const statusColors = {
 const AdminRefunds = () => {
     const [refunds, setRefunds] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState('pending');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [page, setPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
     const [total, setTotal] = useState(0);
-    const [actionLoading, setActionLoading] = useState(null);
-    const [message, setMessage] = useState('');
-    const [noteModal, setNoteModal] = useState(null); // { id, action }
-    const [note, setNote] = useState('');
+
+    const formatDateTime = (value) => {
+        if (!value) return 'N/A';
+        return new Date(value).toLocaleString();
+    };
+
+    const toPhp = (value) => `₱${Number(value || 0).toLocaleString()}`;
 
     const fetchRefunds = useCallback(async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams();
+            const params = new URLSearchParams({ page: String(page) });
             if (statusFilter) params.append('status', statusFilter);
             if (search) params.append('search', search);
-            const res = await axios.get(`/api/admin/refund-requests?${params}`);
+            if (dateFrom) params.append('date_from', dateFrom);
+            if (dateTo) params.append('date_to', dateTo);
+            const res = await axios.get(`/api/admin/refunds?${params}`);
             const body = res.data;
             const items = Array.isArray(body) ? body : (body?.data ?? []);
             setRefunds(items);
             setTotal(body?.total ?? items.length);
+            setLastPage(body?.last_page ?? 1);
         } catch (err) {
             console.error(err);
         } finally {
             setLoading(false);
         }
-    }, [statusFilter, search]);
+    }, [statusFilter, search, dateFrom, dateTo, page]);
 
     useEffect(() => { fetchRefunds(); }, [fetchRefunds]);
 
-    const handleAction = async (id, action) => {
-        setActionLoading(`${id}-${action}`);
-        try {
-            const payload = { 
-                notes: note,
-                // Default to 'original' payment method for industry standard compliance
-                refund_method: action === 'approve' ? 'original' : undefined 
-            };
-            await axios.post(`/api/admin/refund-requests/${id}/${action}`, payload);
-            setMessage(`Refund ${action}d successfully.`);
-            setNoteModal(null);
-            setNote('');
-            fetchRefunds();
-        } catch (err) {
-            setMessage(err.response?.data?.message || `Failed to ${action} refund.`);
-        } finally {
-            setActionLoading(null);
-        }
-    };
-
     return (
-        <div className="page-shell bg-[#0a0a0b] min-h-screen pb-20">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <header className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+        <div className="admin-page">
+            <div className="admin-container">
+                <header className="admin-header">
                     <div className="space-y-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                            <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-zinc-500">
-                                Dispute Resolution Queue
+                        <div className="admin-eyebrow">
+                            <span className="admin-eyebrow-dot bg-amber-500 animate-pulse" />
+                            <p className="admin-eyebrow-text">
+                                Read-Only Financial Records
                             </p>
                         </div>
-                        <h1 className="font-display text-5xl sm:text-6xl font-black text-white leading-tight tracking-tighter">
-                            Refunds<span className="text-zinc-600">.</span>
+                        <h1 className="admin-title">
+                            Refunds <span className="text-zinc-600">.</span>
                         </h1>
                     </div>
                 </header>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                     {[
-                        { label: 'Awaiting Review', value: refunds.filter(r => r.status === 'pending').length, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-                        { label: 'Released Funds', value: refunds.filter(r => r.status === 'approved').length, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-                        { label: 'Denied Requests', value: refunds.filter(r => r.status === 'rejected').length, icon: 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z' },
-                        { label: 'Focus Queue', value: statusFilter || 'Aggregate', icon: 'M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z' },
+                        { label: 'Pending (Page)', value: refunds.filter(r => r.status === 'pending').length, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+                        { label: 'Approved (Page)', value: refunds.filter(r => r.status === 'approved').length, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+                        { label: 'Rejected (Page)', value: refunds.filter(r => r.status === 'rejected').length, icon: 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z' },
+                        { label: 'Total Records', value: total, icon: 'M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z' },
                     ].map((kpi) => (
                         <div key={kpi.label} className="bg-[#111113] border border-zinc-800 rounded-2xl p-4">
                             <div className="flex items-center gap-3 mb-2">
@@ -94,39 +85,78 @@ const AdminRefunds = () => {
                     ))}
                 </div>
 
-                {message && (
-                    <div className="mb-6 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-widest px-6 py-4 rounded-xl flex items-center gap-3">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {message}
-                    </div>
-                )}
-
-                <div className="bg-[#111113] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="admin-panel">
                     <div className="p-6 border-b border-zinc-800 flex flex-wrap gap-4 items-center justify-between">
-                        <div className="flex flex-wrap gap-2">
-                            {['pending', 'approved', 'rejected', ''].map((s) => (
-                                <button
-                                    key={s}
-                                    onClick={() => setStatusFilter(s)}
-                                    className={`text-[10px] font-bold tracking-[0.2em] uppercase px-5 py-2.5 rounded-xl border transition-all duration-300 ${
-                                        statusFilter === s 
-                                        ? 'bg-white border-white text-black shadow-lg shadow-white/5' 
-                                        : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300'
-                                    }`}
-                                >
-                                    {s === '' ? 'Omni-Queue' : s}
-                                </button>
-                            ))}
+                        <div className="flex flex-wrap gap-3">
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => {
+                                    setStatusFilter(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="bg-black border border-zinc-800 text-[10px] font-bold tracking-[0.2em] uppercase text-white rounded-xl px-4 py-2.5"
+                            >
+                                <option value="">All Statuses</option>
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                            <input
+                                type="date"
+                                value={dateFrom}
+                                onChange={(e) => {
+                                    setDateFrom(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="bg-black border border-zinc-800 text-[10px] font-bold tracking-widest text-zinc-300 rounded-xl px-4 py-2.5"
+                            />
+                            <input
+                                type="date"
+                                value={dateTo}
+                                onChange={(e) => {
+                                    setDateTo(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="bg-black border border-zinc-800 text-[10px] font-bold tracking-widest text-zinc-300 rounded-xl px-4 py-2.5"
+                            />
                         </div>
 
-                        <div className="flex-1 max-w-md w-full">
+                        <div className="flex-1 max-w-2xl w-full flex gap-2">
                             <input
                                 type="text"
                                 placeholder="SEARCH BY REF, EMAIL, NAME OR EVENT..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
+                                value={searchInput}
+                                onChange={(e) => setSearchInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        setPage(1);
+                                        setSearch(searchInput.trim());
+                                    }
+                                }}
                                 className="w-full bg-black border border-zinc-800 text-[10px] font-bold tracking-widest text-white placeholder-zinc-700 rounded-xl px-5 py-2.5 focus:outline-none focus:border-white/20 transition-all uppercase"
                             />
+                            <button
+                                onClick={() => {
+                                    setPage(1);
+                                    setSearch(searchInput.trim());
+                                }}
+                                className="px-4 py-2.5 rounded-xl bg-white text-black text-[10px] font-black uppercase tracking-widest"
+                            >
+                                Apply
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setStatusFilter('');
+                                    setDateFrom('');
+                                    setDateTo('');
+                                    setSearch('');
+                                    setSearchInput('');
+                                    setPage(1);
+                                }}
+                                className="px-4 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 text-[10px] font-black uppercase tracking-widest"
+                            >
+                                Reset
+                            </button>
                         </div>
                     </div>
 
@@ -135,9 +165,9 @@ const AdminRefunds = () => {
                             <thead>
                                 <tr className="bg-black/40">
                                     <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 italic">Petitioner</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">Value & Status</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">Logistics</th>
-                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 text-right">Actions</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">Financials</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">Reason</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">Processing</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-800/50">
@@ -150,7 +180,7 @@ const AdminRefunds = () => {
                                 ) : refunds.length === 0 ? (
                                     <tr>
                                         <td colSpan="4" className="px-6 py-20 text-center">
-                                            <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-zinc-600">Queue Clear</p>
+                                            <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-zinc-600">No Ledger Records</p>
                                         </td>
                                     </tr>
                                 ) : (
@@ -159,44 +189,30 @@ const AdminRefunds = () => {
                                             <td className="px-6 py-5">
                                                 <div>
                                                     <h3 className="text-xs font-black text-white uppercase tracking-wider mb-1 group-hover:text-amber-400 transition-colors">
-                                                        {refund.booking?.user?.name || 'Petitioner Identity Lost'}
+                                                        {refund.booking?.user?.name || 'Unknown User'}
                                                     </h3>
                                                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{refund.booking?.booking_reference || `#Ref-${refund.id}`}</p>
+                                                    <p className="text-[9px] text-zinc-600 uppercase tracking-widest mt-1">{refund.booking?.user?.email || 'No email'}</p>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5">
                                                 <div className="space-y-1">
-                                                    <p className="text-xs font-black text-white">₱{Number(refund.booking?.total_amount || 0).toLocaleString()}</p>
+                                                    <p className="text-xs font-black text-white">{toPhp(refund.refund_amount ?? refund.booking?.total_amount)}</p>
                                                     <div className={`inline-block px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest border ${statusColors[refund.status]}`}>
                                                         {refund.status}
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5">
-                                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate max-w-[200px]">{refund.reason || 'No justification provided.'}</p>
+                                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest max-w-[280px] whitespace-normal">{refund.reason || 'No justification provided.'}</p>
                                                 <p className="text-[9px] text-zinc-600 font-medium uppercase tracking-widest mt-1">
                                                     {refund.booking?.event?.title || 'Unknown Event'}
                                                 </p>
                                             </td>
-                                            <td className="px-6 py-5 text-right">
-                                                <div className="flex justify-end gap-2 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
-                                                    {refund.status === 'pending' && (
-                                                        <>
-                                                            <button 
-                                                                onClick={() => { setNoteModal({ id: refund.id, action: 'approve' }); setNote(''); }}
-                                                                className="px-4 py-2 bg-white text-black text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-zinc-200 transition-all shadow-xl shadow-white/5"
-                                                            >
-                                                                Authorize
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => { setNoteModal({ id: refund.id, action: 'reject' }); setNote(''); }}
-                                                                className="px-4 py-2 bg-zinc-900 border border-zinc-800 text-zinc-500 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:border-red-500/50 hover:text-red-500 transition-all"
-                                                            >
-                                                                Deny
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
+                                            <td className="px-6 py-5">
+                                                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Requested: {formatDateTime(refund.created_at)}</p>
+                                                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Processed: {formatDateTime(refund.processed_at)}</p>
+                                                <p className="text-[9px] font-bold uppercase tracking-widest text-cyan-400">By: {refund.approved_by?.name || 'Pending Admin'}</p>
                                             </td>
                                         </tr>
                                     ))
@@ -204,46 +220,26 @@ const AdminRefunds = () => {
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </div>
 
-            {/* Note modal */}
-            {noteModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-50 px-4">
-                    <div className="bg-[#111113] border border-zinc-800 rounded-3xl p-8 max-w-md w-full shadow-2xl">
-                        <div className="flex items-center gap-3 mb-6">
-                            <span className={`w-2 h-2 rounded-full ${noteModal.action === 'approve' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
-                            <h3 className="text-[11px] font-bold tracking-[0.3em] uppercase text-white">
-                                Finalizing {noteModal.action === 'approve' ? 'Credit' : 'Denial'}
-                            </h3>
-                        </div>
-                        
-                        <textarea
-                            rows={4}
-                            value={note}
-                            onChange={(e) => setNote(e.target.value)}
-                            placeholder="State the justification for this action (Internal use only)..."
-                            className="block w-full rounded-2xl bg-black border border-zinc-800 px-5 py-4 text-xs text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-500 transition-all resize-none mb-6"
-                        />
-                        
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => handleAction(noteModal.id, noteModal.action)}
-                                disabled={!!actionLoading}
-                                className={`flex-1 text-[10px] font-black tracking-[0.2em] uppercase py-4 rounded-xl text-white transition-all shadow-xl active:scale-95 ${noteModal.action === 'approve' ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/10' : 'bg-red-600 hover:bg-red-500 shadow-red-500/10'}`}
-                            >
-                                {actionLoading ? 'Synchronizing...' : `Submit ${noteModal.action}`}
-                            </button>
-                            <button
-                                onClick={() => setNoteModal(null)}
-                                className="px-6 text-[10px] font-black tracking-[0.2em] uppercase py-4 rounded-xl border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-600 transition-all"
-                            >
-                                Abort
-                            </button>
-                        </div>
+                    <div className="p-5 border-t border-zinc-800 flex items-center justify-between">
+                        <button
+                            disabled={page <= 1}
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            className="px-4 py-2 rounded-xl border border-zinc-700 text-zinc-300 disabled:opacity-40"
+                        >
+                            Previous
+                        </button>
+                        <p className="text-zinc-500 text-xs uppercase tracking-widest">Page {page} of {lastPage}</p>
+                        <button
+                            disabled={page >= lastPage}
+                            onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+                            className="px-4 py-2 rounded-xl border border-zinc-700 text-zinc-300 disabled:opacity-40"
+                        >
+                            Next
+                        </button>
                     </div>
                 </div>
-            )}
+            </div>
         </div>
     );
 };

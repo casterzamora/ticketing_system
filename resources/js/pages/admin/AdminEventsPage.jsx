@@ -70,17 +70,17 @@ const AdminEvents = () => {
     };
 
     return (
-        <div className="page-shell bg-[#0a0a0b] min-h-screen pb-20">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <header className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+        <div className="admin-page">
+            <div className="admin-container">
+                <header className="admin-header">
                     <div className="space-y-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse" />
-                            <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-blue-500/80">
+                        <div className="admin-eyebrow">
+                            <span className="admin-eyebrow-dot bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse" />
+                            <p className="admin-eyebrow-text text-blue-500/80">
                                 Event Management
                             </p>
                         </div>
-                        <h1 className="font-display text-5xl sm:text-7xl font-black text-white leading-tight tracking-tighter uppercase">
+                        <h1 className="admin-title sm:text-7xl uppercase">
                             Events List<span className="text-blue-500">.</span>
                         </h1>
                     </div>
@@ -98,7 +98,7 @@ const AdminEvents = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
                     {[
                         { label: 'Total Events', value: total, color: 'text-blue-500', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
-                        { label: 'Public Events', value: events.filter(e => e.status === 'published').length, color: 'text-emerald-500', icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' },
+                        { label: 'Public Events', value: events.filter(e => ['published', 'rescheduled'].includes(e.status)).length, color: 'text-emerald-500', icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' },
                         { label: 'Drafts', value: events.filter(e => e.status === 'draft').length, color: 'text-amber-500', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' },
                         { label: 'System Usage', value: `${((events.length / 50) * 100).toFixed(0)}%`, color: 'text-zinc-500', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
                     ].map((kpi) => (
@@ -145,6 +145,7 @@ const AdminEvents = () => {
                             >
                                 <option value="">All Statuses</option>
                                 <option value="published">Published</option>
+                                <option value="rescheduled">Rescheduled</option>
                                 <option value="draft">Draft</option>
                                 <option value="cancelled">Cancelled</option>
                             </select>
@@ -201,8 +202,8 @@ const AdminEvents = () => {
                                 ) : (
                                     events.map((event) => {
                                         const soldOut = event.remaining_total === 0;
-                                        const lowStock = !soldOut && event.remaining_total <= (event.max_capacity * 0.1);
-                                        const fillPercentage = Math.min(100, Math.max(0, ((event.max_capacity - (event.remaining_total ?? 0)) / event.max_capacity) * 100));
+                                        const lowStock = Boolean(event.low_stock_alert) && !soldOut;
+                                        const fillPercentage = Math.min(100, Math.max(0, Number(event.sold_pct ?? 0)));
 
                                         return (
                                             <tr key={event.id} className="hover:bg-blue-500/[0.02] transition-colors group">
@@ -227,6 +228,7 @@ const AdminEvents = () => {
                                                             <div className="flex items-center gap-3">
                                                                 <div className={`text-[8px] font-black px-2 py-0.5 rounded border ${
                                                                     event.status === 'published' ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.2)]' :
+                                                                    event.status === 'rescheduled' ? 'bg-green-500/5 text-green-400 border-green-500/20 shadow-[0_0_8px_rgba(16,185,129,0.2)]' :
                                                                     event.status === 'draft' ? 'bg-zinc-500/5 text-zinc-500 border-zinc-500/20' :
                                                                     'bg-red-500/5 text-red-500 border-red-500/20'
                                                                 } uppercase tracking-widest`}>
@@ -244,8 +246,13 @@ const AdminEvents = () => {
                                                         <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest group-hover:text-white transition-colors">{event.venue}</p>
                                                         <div className="flex items-center gap-2 text-[9px] text-zinc-600 font-mono tracking-tighter">
                                                             <span className="w-3 h-[1px] bg-zinc-800" />
-                                                            {new Date(event.start_time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()}
+                                                            {new Date(event.start_time).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).toUpperCase()}
                                                         </div>
+                                                        {event.status === 'rescheduled' && event.original_start_time && (
+                                                            <div className="text-[9px] text-emerald-400/70 font-mono tracking-tighter">
+                                                                FROM {new Date(event.original_start_time).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).toUpperCase()}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-6 border-x border-zinc-800/10">

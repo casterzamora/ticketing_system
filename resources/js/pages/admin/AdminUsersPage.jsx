@@ -90,7 +90,7 @@ const AdminUsers = () => {
                             </div>
                         </div>
                         <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-2xl backdrop-blur-sm min-w-[160px]">
-                            <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-2">Active Sessions</p>
+                            <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-2">Active Users</p>
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-white">{users.filter(u => u.is_active).length}</span>
                                 <span className="text-[10px] text-zinc-600 font-bold">AUTH</span>

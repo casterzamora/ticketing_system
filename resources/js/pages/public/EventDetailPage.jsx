@@ -59,19 +59,19 @@ const EventDetail = ({ isAuthenticated }) => {
                 style={{ backgroundImage: event.image_url ? `url(${event.image_url})` : 'none', backgroundColor: '#15171a' }}
             >
                 <div className="absolute inset-0 site-hero-shade" />
-                <div className="absolute bottom-0 left-0 right-0 p-6 max-w-7xl mx-auto">
+                <div className="absolute bottom-0 left-0 right-0 p-6 max-w-7xl mx-auto z-10">
                     <div className="flex flex-wrap gap-2 mb-3">
                         {event.categories?.map((c) => (
                             <span key={c.id} className="text-[10px] font-bold tracking-widest uppercase bg-zinc-200 text-zinc-900 px-2 py-0.5 rounded-full">
                                 {c.name}
                             </span>
                         ))}
-                        <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full ${
-                            event.status === 'published' ? 'bg-emerald-800/80 text-emerald-100' : 'bg-zinc-700/90 text-zinc-100'
-                        }`}>
-                            {event.status}
-                        </span>
                     </div>
+                    {event.status === 'rescheduled' && (
+                        <div className="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-emerald-500 text-black rounded-lg shadow-xl">
+                            <span className="text-[11px] font-black tracking-tighter uppercase whitespace-nowrap">Event Re-scheduled</span>
+                        </div>
+                    )}
                     <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">{event.title}</h1>
                 </div>
             </div>
@@ -79,6 +79,31 @@ const EventDetail = ({ isAuthenticated }) => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left – Details */}
                 <div className="lg:col-span-2 space-y-6">
+                    {/* Rescheduled Notice */}
+                    {event.status === 'rescheduled' && event.original_start_time && (
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top duration-500">
+                            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                                <span className="text-emerald-400">📅</span>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-emerald-400 tracking-wide uppercase">Event Rescheduled</h3>
+                                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                                    The organizer has moved this event to a new date. 
+                                    {event.original_start_time && (
+                                        <span className="block mt-1 font-medium italic">
+                                            Original date: {new Date(event.original_start_time).toLocaleDateString('en-PH', { 
+                                                weekday: 'long', 
+                                                year: 'numeric', 
+                                                month: 'long', 
+                                                day: 'numeric' 
+                                            })}
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Info row */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         {[

@@ -34,6 +34,8 @@ class Payment extends Model
         'amount',
         'currency',
         'status',
+        'processor_response',
+        'gateway_transaction_id',
         'payment_method',
         'gateway',
         'transaction_id',
@@ -41,6 +43,9 @@ class Payment extends Model
         'processed_at',
         'original_payment_id',
         'booking_id',
+        'proof_image_path',
+        'payment_reference',
+        'sender_notes',
     ];
 
     /**
@@ -52,6 +57,7 @@ class Payment extends Model
         'amount' => 'decimal:2',
         'processed_at' => 'datetime',
         'gateway_response' => 'array',
+        'processor_response' => 'array',
     ];
 
     /**
@@ -61,6 +67,7 @@ class Payment extends Model
      */
     protected $hidden = [
         'gateway_response',
+        'processor_response',
     ];
 
     /**

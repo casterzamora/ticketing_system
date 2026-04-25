@@ -9,11 +9,16 @@ const Dashboard = ({ isAdmin }) => {
         refunds: 0,
     });
     const [loading, setLoading] = useState(true);
+    const [notifications, setNotifications] = useState([]);
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const response = await axios.get('/api/dashboard/stats');
+                const [response, notifResponse] = await Promise.all([
+                    axios.get('/api/dashboard/stats'),
+                    axios.get('/api/user/notifications?limit=5'),
+                ]);
+
                 if (response?.data) {
                     setStats({
                         events: response.data.events ?? 0,
@@ -21,6 +26,8 @@ const Dashboard = ({ isAdmin }) => {
                         refunds: response.data.refunds ?? 0,
                     });
                 }
+
+                setNotifications(notifResponse?.data?.data ?? []);
             } catch (error) {
                 console.error('Error fetching stats:', error);
             } finally {
@@ -71,7 +78,7 @@ const Dashboard = ({ isAdmin }) => {
                   color: 'from-zinc-500 to-zinc-700',
               },
               {
-                  label: 'Past Events',
+                  label: 'Refunded / Cancelled',
                   value: stats.refunds,
                   color: 'from-emerald-400 to-teal-500',
               },
@@ -132,19 +139,23 @@ const Dashboard = ({ isAdmin }) => {
                             </div>
                             <div className="kpi-chip">
                                 <p className="text-xs tracking-[0.18em] uppercase text-zinc-400">Support</p>
-                                <p className="font-display text-2xl text-white mt-0.5">help@livetix.local</p>
+                                <p className="font-display text-2xl text-white mt-0.5">support@livetix.com</p>
                             </div>
                         </div>
                     </div>
 
                     <div className="page-card p-5 animate-fade-up animate-delay-2">
-                        <h2 className="section-title mb-3">Account Notes</h2>
-                        <ul className="text-xs text-zinc-300 space-y-2">
-                            <li className="kpi-chip">Booking statuses update directly from your latest transactions.</li>
-                            <li className="kpi-chip">Refund requests are limited to one request per booking.</li>
-                            <li className="kpi-chip">Ticket availability is validated server-side to prevent overselling.</li>
-                            <li className="kpi-chip">Booking history includes itemized ticket breakdown and payment details.</li>
-                        </ul>
+                        <h2 className="section-title mb-3">Latest Notifications</h2>
+                        <div className="text-xs text-zinc-300 space-y-2">
+                            {notifications.length === 0 ? (
+                                <div className="kpi-chip">No notifications yet.</div>
+                            ) : notifications.map((row) => (
+                                <div key={row.id} className="kpi-chip">
+                                    <p className="text-zinc-100 font-semibold uppercase tracking-wide">{row.title}</p>
+                                    <p className="text-zinc-400 mt-1">{row.body}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </section>
             </div>

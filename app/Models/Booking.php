@@ -44,8 +44,14 @@ class Booking extends Model
         'special_requirements',
         'user_id',
         'event_id',
+        'reschedule_response',
+        'responded_at',
         'void_type',
         'void_reason',
+        'expires_at',
+        'paid_at',
+        'external_session_id',
+        'checked_in_at',
     ];
 
     /**
@@ -56,6 +62,10 @@ class Booking extends Model
     protected $casts = [
         'total_amount' => 'decimal:2',
         'total_tickets' => 'integer',
+        'responded_at' => 'datetime',
+        'checked_in_at' => 'datetime',
+        'expires_at' => 'datetime',
+        'paid_at' => 'datetime',
     ];
 
     /**
@@ -98,6 +108,14 @@ class Booking extends Model
     public function bookingTickets()
     {
         return $this->hasMany(BookingTicket::class);
+    }
+
+    /**
+     * Get individual issued tickets for this booking.
+     */
+    public function tickets()
+    {
+        return $this->hasMany(Ticket::class);
     }
 
     /**
@@ -198,8 +216,7 @@ class Booking extends Model
     /**
      * Check if the booking is eligible for refund.
      * 
-     * Industry Standard Logic:
-     * - Tickets are NON-REFUNDABLE by default.
+     * Middleman Policy:
      * - Only eligible for refund if the event is officially CANCELLED.
      */
     public function isRefundable(): bool

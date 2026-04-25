@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
+import axios from 'axios';
 
 const linkClass = ({ isActive }) =>
     `text-[11px] font-semibold tracking-[0.16em] uppercase px-2 py-1 rounded-md transition ${
@@ -10,6 +11,46 @@ const linkClass = ({ isActive }) =>
 
 const MainLayout = ({ user, isAdmin, onLogout, children }) => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+    useEffect(() => {
+        if (!user || isAdmin) {
+            setUnreadNotifications(0);
+            return;
+        }
+
+        let isMounted = true;
+
+        const loadUnreadCount = async () => {
+            try {
+                const res = await axios.get('/api/user/notifications?limit=5');
+                if (isMounted) {
+                    setUnreadNotifications(Number(res.data?.unread_count || 0));
+                }
+            } catch {
+                if (isMounted) {
+                    setUnreadNotifications(0);
+                }
+            }
+        };
+
+        loadUnreadCount();
+
+        const intervalId = setInterval(loadUnreadCount, 30000);
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                loadUnreadCount();
+            }
+        };
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
+    }, [user, isAdmin]);
 
     return (
         <div className="min-h-screen text-white flex flex-col bg-grid-lines">
@@ -39,13 +80,27 @@ const MainLayout = ({ user, isAdmin, onLogout, children }) => {
                                     <NavLink to="/admin/dashboard" className={linkClass}>Dashboard</NavLink>
                                     <NavLink to="/admin/events" className={linkClass}>Events</NavLink>
                                     <NavLink to="/admin/bookings" className={linkClass}>Bookings</NavLink>
-                                    <NavLink to="/admin/refund-requests" className={linkClass}>Refunds</NavLink>
+                                    <NavLink to="/admin/refunds" className={linkClass}>Refunds</NavLink>
                                     <NavLink to="/admin/users" className={linkClass}>Users</NavLink>
                                 </>
                             ) : user ? (
                                 <>
                                     <NavLink to="/user/dashboard" className={linkClass}>Dashboard</NavLink>
                                     <NavLink to="/user/bookings" className={linkClass}>My Bookings</NavLink>
+                                    <NavLink to="/user/notifications" className={({ isActive }) =>
+                                        `relative inline-flex items-center gap-1 text-[11px] font-semibold tracking-[0.16em] uppercase px-2 py-1 rounded-md transition ${
+                                            isActive
+                                                ? 'text-white bg-white/[0.08]'
+                                                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+                                        }`
+                                    }>
+                                        <span>Notifications</span>
+                                        {unreadNotifications > 0 && (
+                                            <span className="min-w-[18px] h-[18px] px-1.5 inline-flex items-center justify-center rounded-full bg-emerald-500 text-[9px] font-black tracking-normal text-black">
+                                                {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                                            </span>
+                                        )}
+                                    </NavLink>
                                     <NavLink to="/user/settings" className={linkClass}>Profile</NavLink>
                                 </>
                             ) : null}
@@ -108,13 +163,21 @@ const MainLayout = ({ user, isAdmin, onLogout, children }) => {
                                         <Link to="/admin/dashboard" onClick={() => setMobileMenuOpen(false)} className="text-xs uppercase tracking-[0.2em] text-zinc-300 hover:text-white">Dashboard</Link>
                                         <Link to="/admin/events" onClick={() => setMobileMenuOpen(false)} className="text-xs uppercase tracking-[0.2em] text-zinc-300 hover:text-white">Events</Link>
                                         <Link to="/admin/bookings" onClick={() => setMobileMenuOpen(false)} className="text-xs uppercase tracking-[0.2em] text-zinc-300 hover:text-white">Bookings</Link>
-                                        <Link to="/admin/refund-requests" onClick={() => setMobileMenuOpen(false)} className="text-xs uppercase tracking-[0.2em] text-zinc-300 hover:text-white">Refunds</Link>
+                                        <Link to="/admin/refunds" onClick={() => setMobileMenuOpen(false)} className="text-xs uppercase tracking-[0.2em] text-zinc-300 hover:text-white">Refunds</Link>
                                         <Link to="/admin/users" onClick={() => setMobileMenuOpen(false)} className="text-xs uppercase tracking-[0.2em] text-zinc-300 hover:text-white">Users</Link>
                                     </>
                                 ) : (
                                     <>
                                         <Link to="/user/dashboard" onClick={() => setMobileMenuOpen(false)} className="text-xs uppercase tracking-[0.2em] text-zinc-300 hover:text-white">Dashboard</Link>
                                         <Link to="/user/bookings" onClick={() => setMobileMenuOpen(false)} className="text-xs uppercase tracking-[0.2em] text-zinc-300 hover:text-white">My Bookings</Link>
+                                        <Link to="/user/notifications" onClick={() => setMobileMenuOpen(false)} className="text-xs uppercase tracking-[0.2em] text-zinc-300 hover:text-white inline-flex items-center gap-2">
+                                            <span>Notifications</span>
+                                            {unreadNotifications > 0 && (
+                                                <span className="min-w-[16px] h-[16px] px-1 inline-flex items-center justify-center rounded-full bg-emerald-500 text-[9px] font-black tracking-normal text-black">
+                                                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                                                </span>
+                                            )}
+                                        </Link>
                                     </>
                                 )}
                                 </div>
@@ -156,7 +219,7 @@ const MainLayout = ({ user, isAdmin, onLogout, children }) => {
 
                     <div className="space-y-2 md:text-right">
                         <p className="text-zinc-300 uppercase tracking-[0.16em]">Support</p>
-                        <p>help@livetix.local</p>
+                        <p>support@livetix.com</p>
                         <p>Mon-Sun · 9AM-10PM</p>
                         <p>© {new Date().getFullYear()} LiveTix. All rights reserved.</p>
                     </div>

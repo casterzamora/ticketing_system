@@ -5,9 +5,15 @@ use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\UserNotificationController;
 use App\Http\Controllers\Api\TicketTypeController;
 use App\Http\Controllers\Admin\BookingController as AdminBookingController;
+use App\Http\Controllers\Admin\InventoryController as AdminInventoryController;
+use App\Http\Controllers\Admin\OperationsReportController;
 use App\Http\Controllers\Admin\RefundRequestController;
+use App\Http\Controllers\Admin\SystemSettingsController;
+use App\Http\Controllers\Admin\NotificationLogController;
+use App\Services\DomainNotificationService;
 
 /*
 |--------------------------------------------------------------------------
@@ -28,6 +34,31 @@ Route::get('/csrf-cookie', function () {
 
 Route::get('/events', [EventController::class, 'index']);
 Route::get('/events/{event}', [EventController::class, 'show']);
+Route::get('/health', function () {
+    try {
+        \Illuminate\Support\Facades\DB::connection()->getPdo();
+        $db = 'up';
+    } catch (\Throwable $e) {
+        $db = 'down';
+    }
+
+    return response()->json([
+        'status' => $db === 'up' ? 'ok' : 'degraded',
+        'services' => [
+            'database' => $db,
+            'mail' => config('mail.default'),
+            'queue' => config('queue.default'),
+        ],
+        'timestamp' => now()->toIso8601String(),
+    ], $db === 'up' ? 200 : 503);
+});
+Route::get('/event-categories', function () {
+    return \App\Models\EventCategory::query()
+        ->select(['id', 'name'])
+        ->orderBy('name')
+        ->get();
+});
+Route::post('/paymongo/webhook', [BookingController::class, 'handlePayMongoWebhook']);
 
 // ------------------------------------------------------------------
 // API Login / Register (returns JSON for the React SPA)
@@ -85,6 +116,30 @@ Route::post('/register', function (\Illuminate\Http\Request $request) {
     ]);
     $user->assignRole('user');
 
+    DomainNotificationService::forUser(
+        $user->id,
+        'auth.registered',
+        'Welcome to Live Tix',
+        'Your account has been created successfully. You can now browse events and book tickets.',
+        null,
+        [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'username' => $user->username,
+        ]
+    );
+
+    DomainNotificationService::notifyAdmins(
+        'auth.user_registered',
+        'New User Registered',
+        $user->name . ' (' . $user->email . ') has created a new account.',
+        [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'username' => $user->username,
+        ]
+    );
+
     \Illuminate\Support\Facades\Auth::login($user);
     $request->session()->regenerate();
 
@@ -123,34 +178,24 @@ Route::middleware('auth')->group(function () {
         Route::get('/bookings', [BookingController::class, 'index']);
         Route::get('/bookings/{booking}', [BookingController::class, 'show']);
         Route::post('/bookings', [BookingController::class, 'store']);
+        Route::post('/bookings/{booking}/paymongo-checkout', [BookingController::class, 'createPayMongoCheckout']);
+        Route::post('/bookings/{booking}/payment-proof', [BookingController::class, 'submitPaymentProof']);
+        Route::post('/bookings/reschedule-response/{booking}', [BookingController::class, 'respondToReschedule']);
 
-        // Refund requests
-        Route::post('/bookings/{booking}/refund', function (\Illuminate\Http\Request $request, \App\Models\Booking $booking) {
-            if ($booking->user_id !== auth()->id()) {
-                return response()->json(['message' => 'Unauthorized.'], 403);
-            }
+        // Sandbox/Development Simulation Routes (NOT IN PROD)
+        if (config('app.env') !== 'production') {
+            Route::post('/bookings/{booking}/simulate-payment-intent', [BookingController::class, 'simulateIntent']);
+            Route::post('/bookings/{booking}/simulate-payment', [BookingController::class, 'simulateSuccess']);
+        }
 
-            $request->validate(['reason' => 'nullable|string|max:1000']);
+        // Refund policy endpoint
+        Route::post('/bookings/{booking}/refund', [BookingController::class, 'requestRefund']);
+        Route::get('/payment/health', [BookingController::class, 'paymentHealth']);
 
-            if ($booking->refundRequest) {
-                return response()->json(['message' => 'Refund request already submitted.'], 422);
-            }
-
-            // Industry standard guard: Only refundable if event is CANCELLED
-            if (!$booking->isRefundable()) {
-                return response()->json(['message' => 'Tickets are non-refundable unless the event is officially cancelled.'], 422);
-            }
-
-            $refund = \App\Models\RefundRequest::create([
-                'booking_id'    => $booking->id,
-                'user_id'       => $booking->user_id,
-                'refund_amount' => $booking->total_amount,
-                'reason'        => $request->reason,
-                'status'        => 'pending',
-            ]);
-
-            return response()->json(['message' => 'Refund request submitted.', 'refund' => $refund], 201);
-        });
+        // User notification timeline
+        Route::get('/notifications', [UserNotificationController::class, 'index']);
+        Route::patch('/notifications/{notification}/read', [UserNotificationController::class, 'markRead']);
+        Route::patch('/notifications/read-all', [UserNotificationController::class, 'markAllRead']);
     });
 
     // ------------------------------------------------------------------
@@ -161,6 +206,7 @@ Route::middleware('auth')->group(function () {
         // Events (full CRUD)
         Route::get('/events', [EventController::class, 'indexAdmin']);
         Route::patch('/events/{event}/cancel', [EventController::class, 'cancel']);
+        Route::post('/events/{event}/reschedule', [EventController::class, 'reschedule']);
         Route::apiResource('events', EventController::class)->except(['index', 'show']);
 
         // Ticket types (nested under events)
@@ -170,15 +216,26 @@ Route::middleware('auth')->group(function () {
 
         // Bookings management
         Route::get('/bookings', [AdminBookingController::class, 'index']);
+        Route::get('/inventory', [AdminInventoryController::class, 'index']);
         Route::post('/bookings/{booking}/approve', [AdminBookingController::class, 'approve']);
         Route::post('/bookings/{booking}/reject', [AdminBookingController::class, 'reject']);
         Route::post('/bookings/{booking}/cancel', [AdminBookingController::class, 'cancel']);
+        Route::post('/bookings/{booking}/toggle-checkin', [AdminBookingController::class, 'toggleCheckIn']);
+        Route::post('/scanner/check-in', [\App\Http\Controllers\Admin\ScannerController::class, 'checkIn']);
         Route::get('/revenue', [AdminBookingController::class, 'revenue']);
 
-        // Refund management
+        // Refund ledger (read-only)
+        Route::get('/refunds', [RefundRequestController::class, 'index']);
         Route::get('/refund-requests', [RefundRequestController::class, 'index']);
-        Route::post('/refund-requests/{refundRequest}/approve', [RefundRequestController::class, 'approve']);
-        Route::post('/refund-requests/{refundRequest}/reject', [RefundRequestController::class, 'reject']);
+
+        // Operations and policy settings
+        Route::get('/reports/operations', [OperationsReportController::class, 'index']);
+        Route::get('/notifications', [NotificationLogController::class, 'index']);
+        Route::get('/settings/policy', [SystemSettingsController::class, 'policy']);
+        Route::put('/settings/policy', [SystemSettingsController::class, 'updatePolicy']);
+        Route::get('/settings/payment-mode', [SystemSettingsController::class, 'paymentMode']);
+        Route::put('/settings/payment-mode', [SystemSettingsController::class, 'updatePaymentMode']);
+        Route::get('/payments/health', [SystemSettingsController::class, 'paymentHealth']);
 
         // User management
         Route::get('/users', [UserController::class, 'index']);

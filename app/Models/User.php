@@ -106,6 +106,11 @@ class User extends Authenticatable
         return $this->hasMany(ActivityLog::class);
     }
 
+    public function notificationLogs()
+    {
+        return $this->hasMany(NotificationLog::class);
+    }
+
     /**
      * Get the refund requests approved by this user.
      * 

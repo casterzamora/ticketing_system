@@ -13,7 +13,17 @@ return new class extends Migration
     {
         Schema::create('promotions', function (Blueprint $table) {
             $table->id();
+            $table->string('code')->unique();
+            $table->string('description')->nullable();
+            $table->enum('discount_type', ['percentage', 'fixed']);
+            $table->decimal('discount_value', 10, 2);
+            $table->integer('usage_limit')->nullable();
+            $table->integer('used_count')->default(0);
+            $table->timestamp('starts_at')->nullable();
+            $table->timestamp('expires_at')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

@@ -1,4 +1,29 @@
-# Release Notes
+# Project Change Log
+
+All notable changes to this project will be documented in this file.
+
+## [April 2, 2026]
+
+### Added
+- **Rescheduling Policy**: Implemented "Decision Period" (24-168h window) for rescheduled events.
+- **Automated Refunds**: Tickets now auto-refund if a customer rejects a rescheduled date or misses the deadline.
+- **Database Schema**: Added `original_start_time`, `rescheduled_at`, and `refund_deadline` to the `events` table.
+- **Admin UI**: Added "Reschedule Event" modal and API integration in the Event Management dashboard.
+- **Customer UI**: Added rescheduling notice and decision buttons (Keep/Refund) in the Booking Detail page.
+
+### Changed
+- **Status Colors**: Updated `rescheduled` status indicators to green throughout the UI for better UX.
+- **Event Logic**: Moved rescheduling API logic to a dedicated public/admin endpoint to resolve routing conflicts.
+- **Activity Logs**: Updated system to include `subject_type` for polymorphic relationship tracking.
+
+### Fixed
+- **Database ENUMs**: Fixed truncation error by expanding the `status` ENUM in the `events` table via raw SQL migration.
+- **SQL Constraints**: Resolved duplicate entry errors by cleaning transaction tables for fresh testing.
+- **Frontend Consistency**: Resolved JSX syntax errors in status badges and dashboard lists.
+
+---
+
+# Laravel Release Notes
 
 ## [Unreleased](https://github.com/laravel/laravel/compare/v12.11.1...12.x)
 

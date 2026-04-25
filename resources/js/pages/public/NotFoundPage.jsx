@@ -33,7 +33,7 @@ const NotFoundPage = () => {
                         </div>
                         <div className="soft-highlight-card p-4">
                             <p className="text-[10px] tracking-[0.18em] uppercase text-zinc-500 mb-1">Still Stuck?</p>
-                            <p className="text-xs text-zinc-300">Contact support: help@livetix.local</p>
+                            <p className="text-xs text-zinc-300">Contact support: support@livetix.com</p>
                         </div>
                     </div>
                 </section>

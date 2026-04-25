@@ -1,3 +1,41 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+	.admin-page {
+		@apply bg-[#0a0a0b] min-h-screen pb-20;
+	}
+
+	.admin-container {
+		@apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+	}
+
+	.admin-header {
+		@apply mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6;
+	}
+
+	.admin-eyebrow {
+		@apply flex items-center gap-2 mb-2;
+	}
+
+	.admin-eyebrow-dot {
+		@apply w-2 h-2 rounded-full;
+	}
+
+	.admin-eyebrow-text {
+		@apply text-[10px] font-bold tracking-[0.3em] uppercase text-zinc-500;
+	}
+
+	.admin-title {
+		@apply text-5xl sm:text-6xl font-black text-white leading-tight tracking-tighter;
+	}
+
+	.admin-panel {
+		@apply bg-[#111113] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl;
+	}
+
+	.admin-kpi-card {
+		@apply bg-[#111113] border border-zinc-800 rounded-2xl p-4;
+	}
+}

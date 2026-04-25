@@ -10,6 +10,7 @@ const STATUS_COLORS = {
     draft: 'bg-gray-700 text-gray-300 border-gray-600',
     published: 'bg-green-700/40 text-green-300 border-green-600',
     completed: 'bg-blue-700/40 text-blue-300 border-blue-600',
+    rescheduled: 'bg-green-500/20 text-green-300 border-green-600',
 };
 
 const StatusBadge = ({ status }) => {

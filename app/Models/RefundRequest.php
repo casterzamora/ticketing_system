@@ -9,17 +9,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * RefundRequest Model
  * 
- * This model manages customer refund requests with an approval workflow.
- * It tracks the entire refund process from request to approval/rejection.
+ * This model manages customer refund requests created when an organizer 
+ * cancels their event.
  * 
  * Relationships:
  * - belongsTo: Booking, User (approved_by)
  * 
  * Business Logic:
- * - Refund allowed only 48+ hours before event
- * - Only one refund request per booking
- * - Refund status: pending -> approved -> rejected
- * - Track reason and approval details
+ * - Refunds are automatically processed when the event organizer cancels the event.
+ * - Only one refund request per booking.
+ * - Progress status: pending -> approved -> rejected.
  */
 class RefundRequest extends Model
 {

@@ -277,6 +277,11 @@ const Events = ({ isAuthenticated }) => {
                                                             <span className="text-stone-300">
                                                                 {event.categories?.[0]?.name || 'Featured'}
                                                             </span>
+                                                            {event.status === 'rescheduled' && (
+                                                                <span className="bg-emerald-500/10 text-emerald-400 text-[9px] px-2 py-0.5 rounded border border-emerald-500/20">
+                                                                    RESCHEDULED
+                                                                </span>
+                                                            )}
                                                             {event.is_featured && (
                                                                 <span className="bg-white/5 text-stone-200 text-[9px] px-2 py-0.5 rounded border border-white/10">
                                                                     NEW

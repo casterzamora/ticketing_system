@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateEventRequest;
 use App\Models\Event;
 use App\Models\EventCategory;
 use App\Services\ActivityLogService;
+use App\Services\RefundPolicyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -366,8 +367,67 @@ class EventController extends Controller
         }
     }
 
-    /**
-     * Cancel the specified event.
+    /**     * Reschedule the event to a new date and time.
+     * 
+     * This method moves an event's schedule and notifies customers.
+     * Customers are given a dedicated window to decide if they want to
+     * keep the ticket for the new date or request a refund.
+     * 
+     * @param Request $request
+     * @param Event $event
+     * @return RedirectResponse
+     */
+    public function reschedule(Request $request, Event $event): RedirectResponse
+    {
+        $request->validate([
+            'new_start_time' => 'required|date|after:now',
+            'new_end_time' => 'required|date|after:new_start_time',
+            'refund_deadline_hours' => 'required|integer|min:24|max:168', // Allow 24h to 7 days
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Store original time for history if not already set
+            $originalStartTime = $event->original_start_time ?? $event->start_time;
+            
+            // Calculate refund deadline
+            $refundDeadline = now()->addHours((int)$request->refund_deadline_hours);
+
+            // Update event times
+            $event->update([
+                'start_time' => $request->new_start_time,
+                'end_time' => $request->new_end_time,
+                'original_start_time' => $originalStartTime,
+                'rescheduled_at' => now(),
+                'status' => 'rescheduled',
+                'refund_deadline' => $refundDeadline,
+            ]);
+
+            // Set all confirmed bookings to 'pending' response status
+            // This triggers the customer choice UI
+            $event->confirmedBookings()->update([
+                'reschedule_response' => 'pending'
+            ]);
+
+            // Log activity
+            ActivityLogService::log('rescheduled', $event, "Event '{$event->title}' moved from {$originalStartTime} to {$request->new_start_time}. Refund window closes at {$refundDeadline}.");
+
+            DB::commit();
+
+            return redirect()
+                ->back()
+                ->with('success', "Event rescheduled successfully! All ticket holders are now in the 'Decision Period' until {$refundDeadline}.");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()
+                ->back()
+                ->with('error', 'Error rescheduling event: ' . $e->getMessage());
+        }
+    }
+
+    /**     * Cancel the specified event.
      * 
      * This method cancels an event and handles refund processing
      * for existing bookings.
@@ -397,19 +457,13 @@ class EventController extends Controller
             $bookingCount = $confirmedBookings->count();
 
             foreach ($confirmedBookings->get() as $booking) {
-                $booking->cancel();
-                
-                // Create automatic refund requests
-                if ($booking->refundRequest === null) {
-                    $booking->refundRequest()->create([
-                        'refund_amount' => $booking->total_amount,
-                        'reason' => 'Event cancelled by administrator',
-                        'status' => 'approved',
-                        'approved_by' => auth()->id(),
-                        'approved_at' => now(),
-                        'processed_at' => now(),
-                    ]);
-                }
+                // Keep refund state transitions centralized in policy service.
+                RefundPolicyService::approveToLedger(
+                    $booking,
+                    'AUTOMATIC REFUND: Event cancelled by Organizer',
+                    auth()->id(),
+                    'original_source'
+                );
             }
 
             $event->update(['status' => 'cancelled']);

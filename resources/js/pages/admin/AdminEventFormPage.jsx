@@ -20,28 +20,14 @@ const AdminEventForm = () => {
     const [availableCategories, setAvailableCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [rescheduling, setRescheduling] = useState(false);
+    const [rescheduleData, setRescheduleData] = useState({
+        new_start_time: '',
+        new_end_time: '',
+        refund_deadline_hours: 48
+    });
     const [error, setError] = useState('');
     const [errors, setErrors] = useState({});
-
-    useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                const res = await axios.get('/api/events'); // Assuming/checking if there's a better endpoint
-                // Actually let's fetch from a proper categories endpoint if it exists
-                // For now let's use a standard list if we don't have a dedicated API
-            } catch (err) {}
-        };
-        
-        const fetchData = async () => {
-            try {
-                // Fetch categories
-                // Note: I'll use a specific query to get categories
-                const catRes = await axios.get('/api/events'); 
-                // Wait, I need a list of categories. I'll hardcode or fetch if possible.
-                // Let's check if there's an API for categories.
-            } catch (err) {}
-        };
-    }, []);
 
     useEffect(() => {
         const fetchEvent = async () => {
@@ -72,20 +58,13 @@ const AdminEventForm = () => {
         };
 
         const fetchInit = async () => {
-            // Need categories list
             try {
-                // Fetch categories from the database via an event or dedicated API if available
-                const catRes = await axios.get('/api/events'); 
-                // Since we don't have a dedicated /api/categories, we use the ones that exist.
-                // However, our tinker check confirms these IDs:
-                setAvailableCategories([
-                    {id: 1, name: 'Concerts'}, {id: 2, name: 'Sports'}, 
-                    {id: 3, name: 'Theater'}, {id: 4, name: 'Comedy'},
-                    {id: 5, name: 'Conferences'}, {id: 6, name: 'Workshops'},
-                    {id: 7, name: 'Festivals'}, {id: 8, name: 'Exhibitions'}
-                ]);
+                const catRes = await axios.get('/api/event-categories');
+                const categories = catRes.data?.data ?? catRes.data ?? [];
+                setAvailableCategories(Array.isArray(categories) ? categories : []);
             } catch (e) {
                 console.error("Failed to load categories:", e);
+                setAvailableCategories([]);
             }
 
             if (isEdit) {
@@ -119,11 +98,39 @@ const AdminEventForm = () => {
         setError('');
         setErrors({});
         try {
+            const validCategoryIds = form.categories.filter((catId) =>
+                availableCategories.some((cat) => Number(cat.id) === Number(catId))
+            );
+
+            const normalizeOptionalUrl = (value) => {
+                if (typeof value !== 'string') {
+                    return value ?? null;
+                }
+
+                const trimmed = value.trim();
+                return trimmed === '' ? null : trimmed;
+            };
+
+            const payload = {
+                ...form,
+                title: form.title?.trim(),
+                description: form.description?.trim(),
+                venue: form.venue?.trim(),
+                address: form.address?.trim(),
+                start_time: form.start_time || null,
+                end_time: form.end_time || null,
+                max_capacity: Number(form.max_capacity),
+                base_price: Number(form.base_price),
+                image_url: normalizeOptionalUrl(form.image_url),
+                video_url: normalizeOptionalUrl(form.video_url),
+                categories: validCategoryIds,
+            };
+
             let eventId = id;
             if (isEdit) {
-                await axios.put(`/api/admin/events/${id}`, form);
+                await axios.put(`/api/admin/events/${id}`, payload);
             } else {
-                const res = await axios.post('/api/admin/events', form);
+                const res = await axios.post('/api/admin/events', payload);
                 eventId = res.data?.data?.id ?? res.data?.id;
             }
 
@@ -143,8 +150,14 @@ const AdminEventForm = () => {
             navigate('/admin/events');
         } catch (err) {
             if (err.response?.status === 422) {
-                setErrors(err.response.data.errors ?? {});
-                setError('Please fix the validation errors below.');
+                const validationErrors = err.response.data.errors ?? {};
+                setErrors(validationErrors);
+
+                const firstErrorMessage = Object.values(validationErrors)
+                    .flat()
+                    .find((message) => typeof message === 'string');
+
+                setError(firstErrorMessage || 'Please fix the validation errors below.');
             } else {
                 setError(err.response?.data?.message || 'Failed to save event.');
             }
@@ -186,6 +199,31 @@ const AdminEventForm = () => {
         }
     };
 
+    const handleReschedule = async (e) => {
+        e.preventDefault();
+        if (!window.confirm('Are you sure you want to reschedule this event? All confirmed ticket holders will be notified and given a refund window.')) return;
+        
+        setSaving(true);
+        try {
+            await axios.post(`/api/admin/events/${id}/reschedule`, rescheduleData);
+            alert('Event rescheduled successfully!');
+            setRescheduling(false);
+            // Refresh event data
+            const res = await axios.get(`/api/events/${id}`);
+            const ev = res.data?.data ?? res.data;
+            setForm(prev => ({
+                ...prev,
+                start_time: ev.start_time ? ev.start_time.slice(0, 16) : '',
+                end_time: ev.end_time ? ev.end_time.slice(0, 16) : '',
+                status: ev.status || 'draft',
+            }));
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to reschedule event.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-[60vh] flex items-center justify-center">
@@ -219,12 +257,128 @@ const AdminEventForm = () => {
                             {isEdit ? 'Modify event details, schedules, and ticket allocations.' : 'Launch a new event by providing the necessary details and ticket options.'}
                         </p>
                     </div>
+
+                    {isEdit && (
+                        <div className="flex flex-col items-end gap-4 overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setRescheduleData({
+                                        new_start_time: form.start_time,
+                                        new_end_time: form.end_time,
+                                        refund_deadline_hours: 48
+                                    });
+                                    setRescheduling(true);
+                                }}
+                                className="group/btn relative px-8 py-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl overflow-hidden active:scale-95 transition-all duration-300"
+                            >
+                                <div className="relative z-10 flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                                    <span className="text-[10px] font-black tracking-[0.3em] uppercase text-amber-500 group-hover/btn:text-white transition-colors duration-300">Reschedule Event</span>
+                                </div>
+                                <div className="absolute inset-0 bg-amber-500 -translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300"></div>
+                            </button>
+                            <span className="text-[9px] font-black tracking-widest text-zinc-600 uppercase italic">Affects confirmed bookings</span>
+                        </div>
+                    )}
                 </div>
+
+                {rescheduling && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl transition-all animate-in fade-in duration-500">
+                        <div className="bg-[#121214] border border-zinc-800/50 w-full max-w-md rounded-[2.5rem] p-10 shadow-[0_0_100px_-20px_rgba(245,158,11,0.15)] overflow-hidden relative">
+                            {/* Decorative background element */}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[60px] rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                            
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                                    <h2 className="text-[11px] font-black tracking-[0.4em] uppercase text-white font-display">Reschedule Flow</h2>
+                                </div>
+                                
+                                <p className="text-zinc-500 text-xs mb-8 leading-relaxed font-medium">
+                                    Updating the event schedule will trigger a <span className="text-amber-500">Decision Period</span> for all confirmed ticket holders.
+                                </p>
+
+                                <form onSubmit={handleReschedule} className="space-y-8">
+                                    <div>
+                                        <label className={labelClass}>New Start Cycle</label>
+                                        <input
+                                            type="datetime-local"
+                                            className={inputClass}
+                                            value={rescheduleData.new_start_time}
+                                            onChange={(e) => setRescheduleData(prev => ({ ...prev, new_start_time: e.target.value }))}
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>New End Cycle</label>
+                                        <input
+                                            type="datetime-local"
+                                            className={inputClass}
+                                            value={rescheduleData.new_end_time}
+                                            onChange={(e) => setRescheduleData(prev => ({ ...prev, new_end_time: e.target.value }))}
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className={labelClass}>Decision Window</label>
+                                            <span className="text-[10px] font-bold text-amber-500">{rescheduleData.refund_deadline_hours}h</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                            value={rescheduleData.refund_deadline_hours}
+                                            onChange={(e) => setRescheduleData(prev => ({ ...prev, refund_deadline_hours: e.target.value }))}
+                                            min="24"
+                                            max="168"
+                                            step="12"
+                                        />
+                                        <div className="flex justify-between mt-2 text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+                                            <span>24 Hours</span>
+                                            <span>7 Days</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-4 pt-4">
+                                        <button
+                                            type="submit"
+                                            disabled={saving}
+                                            className="w-full bg-amber-600 hover:bg-amber-500 text-white rounded-2xl py-4 text-[11px] font-black tracking-[0.2em] uppercase transition-all shadow-xl shadow-amber-900/10 hover:shadow-amber-500/20 active:scale-95"
+                                        >
+                                            {saving ? 'UPDATING SYSTEMS...' : 'CONFIRM NEW SCHEDULE'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setRescheduling(false)}
+                                            className="w-full py-4 text-[10px] font-black tracking-[0.2em] uppercase text-zinc-600 hover:text-zinc-400 transition-colors"
+                                        >
+                                            Abort Operation
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {error && (
                     <div className="mb-8 bg-red-500/5 border border-red-500/20 text-red-400 text-[11px] uppercase tracking-widest font-bold px-6 py-4 rounded-xl flex items-center gap-3">
                         <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
                         {error}
+                    </div>
+                )}
+
+                {Object.keys(errors).length > 0 && (
+                    <div className="mb-8 bg-red-950/40 border border-red-500/30 text-red-200 text-[11px] px-6 py-4 rounded-xl">
+                        <p className="font-bold uppercase tracking-widest mb-2">Validation details</p>
+                        <ul className="space-y-1 text-[11px] normal-case tracking-normal">
+                            {Object.entries(errors).map(([field, messages]) => (
+                                <li key={field}>
+                                    <span className="font-semibold">{field}:</span> {Array.isArray(messages) ? messages[0] : String(messages)}
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 )}
 
@@ -337,6 +491,7 @@ const AdminEventForm = () => {
                                     <select name="status" value={form.status} onChange={handleChange} className={`${inputClass} appearance-none cursor-pointer font-bold tracking-tight`}>
                                         <option value="draft">DRAFT (HIDDEN)</option>
                                         <option value="published">PUBLISHED (LIVE)</option>
+                                        <option value="rescheduled">RESCHEDULED</option>
                                         <option value="cancelled">CANCELLED</option>
                                         <option value="completed">COMPLETED</option>
                                     </select>

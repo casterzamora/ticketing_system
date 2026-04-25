@@ -76,7 +76,7 @@ const BookingForm = ({ user }) => {
             };
 
             const res = await axios.post('/api/user/bookings', payload);
-            navigate(`/user/bookings/${res.data?.data?.id ?? res.data?.id}`);
+            navigate(`/user/checkout/${res.data?.data?.id ?? res.data?.id}`);
         } catch (err) {
             if (err.response?.status === 422) {
                 setErrors(err.response.data.errors ?? {});

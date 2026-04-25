@@ -12,4 +12,8 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::view('/', 'welcome');
+
+Route::get('/tickets/{reference}/pdf', [App\Http\Controllers\Api\BookingController::class, 'downloadTicketPdf'])
+    ->name('tickets.pdf');
+
 Route::view('/{any}', 'welcome')->where('any', '^(?!api|sanctum).*$');
