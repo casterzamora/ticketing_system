@@ -54,6 +54,7 @@ CMD sh -lc ' \
     export DB_DATABASE="${DB_DATABASE:-${MYSQLDATABASE:-}}"; \
     export DB_USERNAME="${DB_USERNAME:-${MYSQLUSER:-}}"; \
     export DB_PASSWORD="${DB_PASSWORD:-${MYSQLPASSWORD:-}}"; \
+    if [ -z "${APP_KEY:-}" ]; then export APP_KEY="$(php artisan key:generate --show --no-interaction)"; fi; \
     php artisan config:clear; \
     php artisan config:cache; \
     php artisan view:cache; \
