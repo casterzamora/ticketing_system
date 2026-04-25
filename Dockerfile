@@ -46,8 +46,9 @@ RUN npm run build
 
 EXPOSE 10000
 
-# Chained command to handle migrations and start the server
-CMD php artisan migrate --force \
-    && php artisan config:cache \
-    && php artisan view:cache \
-    && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
+# Chained command to handle bootstrapping and start the server
+# Using -n to skip migrations if DB isn't ready during initial boot
+CMD php artisan config:cache && \
+    php artisan view:cache && \
+    php artisan migrate --force && \
+    php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
