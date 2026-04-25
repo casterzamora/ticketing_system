@@ -84,12 +84,22 @@ Route::post('/login', function (\Illuminate\Http\Request $request) {
         return response()->json(['message' => 'Your account has been suspended.'], 403);
     }
 
+    try {
+        $isAdmin = $user->isAdmin();
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Unable to resolve admin role during login.', [
+            'user_id' => $user->id,
+            'error' => $e->getMessage(),
+        ]);
+        $isAdmin = false;
+    }
+
     return response()->json([
         'id'       => $user->id,
         'name'     => $user->name,
         'email'    => $user->email,
         'username' => $user->username,
-        'is_admin' => $user->isAdmin(),
+        'is_admin' => $isAdmin,
     ]);
 });
 
@@ -114,31 +124,45 @@ Route::post('/register', function (\Illuminate\Http\Request $request) {
         'password'   => \Illuminate\Support\Facades\Hash::make($data['password']),
         'is_active'  => true,
     ]);
-    $user->assignRole('user');
-
-    DomainNotificationService::forUser(
-        $user->id,
-        'auth.registered',
-        'Welcome to Live Tix',
-        'Your account has been created successfully. You can now browse events and book tickets.',
-        null,
-        [
+    try {
+        $user->assignRole('user');
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Unable to assign user role during registration.', [
             'user_id' => $user->id,
-            'email' => $user->email,
-            'username' => $user->username,
-        ]
-    );
+            'error' => $e->getMessage(),
+        ]);
+    }
 
-    DomainNotificationService::notifyAdmins(
-        'auth.user_registered',
-        'New User Registered',
-        $user->name . ' (' . $user->email . ') has created a new account.',
-        [
+    try {
+        DomainNotificationService::forUser(
+            $user->id,
+            'auth.registered',
+            'Welcome to Live Tix',
+            'Your account has been created successfully. You can now browse events and book tickets.',
+            null,
+            [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'username' => $user->username,
+            ]
+        );
+
+        DomainNotificationService::notifyAdmins(
+            'auth.user_registered',
+            'New User Registered',
+            $user->name . ' (' . $user->email . ') has created a new account.',
+            [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'username' => $user->username,
+            ]
+        );
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Unable to write registration notifications.', [
             'user_id' => $user->id,
-            'email' => $user->email,
-            'username' => $user->username,
-        ]
-    );
+            'error' => $e->getMessage(),
+        ]);
+    }
 
     \Illuminate\Support\Facades\Auth::login($user);
     $request->session()->regenerate();

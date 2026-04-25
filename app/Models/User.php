@@ -132,7 +132,11 @@ class User extends Authenticatable
      */
     public function isAdmin(): bool
     {
-        return $this->hasRole('admin');
+        try {
+            return $this->hasRole('admin');
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
@@ -145,7 +149,11 @@ class User extends Authenticatable
      */
     public function isCustomer(): bool
     {
-        return $this->hasRole('user');
+        try {
+            return $this->hasRole('user');
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
