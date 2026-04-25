@@ -28,15 +28,15 @@ services:
       - key: DB_CONNECTION
         value: mysql
       - key: DB_HOST
-        value: 127.0.0.1
+        sync: false
       - key: DB_PORT
         value: "3306"
       - key: DB_DATABASE
         sync: false
       - key: DB_USERNAME
-        value: root
+        sync: false
       - key: DB_PASSWORD
-        value: ""
+        sync: false
       - key: SESSION_DRIVER
         value: database
       - key: SESSION_SECURE_COOKIE
