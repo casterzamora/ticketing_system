@@ -160,7 +160,10 @@ class EventCategorySeeder extends Seeder
         ];
 
         foreach ($categories as $category) {
-            EventCategory::create($category);
+            EventCategory::firstOrCreate(
+                ['slug' => $category['slug']],
+                $category
+            );
         }
     }
 }
@@ -175,14 +178,16 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         // Create admin user
-        $admin = User::create([
-            'name' => 'System Administrator',
-            'first_name' => 'Admin',
-            'last_name' => 'User',
-            'email' => 'admin@ticketing.com',
-            'password' => Hash::make('password'),
-            'is_active' => true,
-        ]);
+        $admin = User::updateOrCreate(
+            ['email' => 'admin@ticketing.com'],
+            [
+                'name' => 'System Administrator',
+                'first_name' => 'Admin',
+                'last_name' => 'User',
+                'password' => Hash::make('password'),
+                'is_active' => true,
+            ]
+        );
 
         $admin->assignRole('admin');
 
@@ -212,7 +217,10 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($customers as $customerData) {
-            $customer = User::create(array_merge($customerData, ['is_active' => true]));
+            $customer = User::updateOrCreate(
+                ['email' => $customerData['email']],
+                array_merge($customerData, ['is_active' => true])
+            );
             $customer->assignRole('user');
         }
     }
