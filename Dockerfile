@@ -29,11 +29,17 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 
 WORKDIR /var/www/html
 
-# Copy all files first to simplify the build and ensure artisan scripts work
+# Copy project files
 COPY . .
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+# Remove existing vendor/composer if they exist (should be handled by .dockerignore but being explicit)
+RUN rm -rf vendor composer.lock
+
+# Install PHP dependencies without scripts first to break circular dependency
+RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts
+
+# Now run the scripts manually or via dump-autoload
+RUN composer dump-autoload --optimize --no-dev
 
 # Install Node dependencies and build assets
 RUN npm ci --no-audit --no-fund
