@@ -1,50 +1,53 @@
 FROM php:8.2-cli
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        curl \
-        git \
-        unzip \
-        libzip-dev \
-        libpng-dev \
-        libonig-dev \
-        libxml2-dev \
-        libicu-dev \
+# Install system dependencies in a single layer and clean up to save space
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    unzip \
+    libzip-dev \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libicu-dev \
     && docker-php-ext-install \
-        bcmath \
-        intl \
-        mbstring \
-        pdo \
-        pdo_mysql \
-        pcntl \
-        zip \
-    && rm -rf /var/lib/apt/lists/*
+    bcmath \
+    intl \
+    mbstring \
+    pdo \
+    pdo_mysql \
+    pcntl \
+    zip \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# Install Node.js (Stable 20)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www/html
 
-# Copy project files
+# Copy all project files
 COPY . .
 
-# Remove existing vendor/composer if they exist (should be handled by .dockerignore but being explicit)
-RUN rm -rf vendor composer.lock
+# Ensure fresh permissions for storage and bootstrap/cache (critical for Render)
+RUN mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
-# Install PHP dependencies without scripts first to break circular dependency
-RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts
+# Install PHP dependencies without scripts to avoid environment issues during build
+RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts \
+    && composer dump-autoload --optimize --no-dev
 
-# Now run the scripts manually or via dump-autoload
-RUN composer dump-autoload --optimize --no-dev
-
-# Install Node dependencies and build assets
+# Install Node dependencies and build Vite assets
 RUN npm ci --no-audit --no-fund
 RUN npm run build
 
 EXPOSE 10000
 
-CMD ["sh", "-lc", "php artisan migrate --force && php artisan config:cache && php artisan view:cache && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]
+# Chained command to handle migrations and start the server
+CMD php artisan migrate --force \
+    && php artisan config:cache \
+    && php artisan view:cache \
+    && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
