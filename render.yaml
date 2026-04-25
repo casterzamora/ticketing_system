@@ -22,7 +22,7 @@ services:
       - key: APP_FORCE_ROOT_URL
         sync: false
       - key: LOG_CHANNEL
-        value: stack
+        value: stderr
       - key: LOG_LEVEL
         value: info
       - key: DB_CONNECTION
