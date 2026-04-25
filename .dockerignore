@@ -1,0 +1,17 @@
+.git
+.gitignore
+.vscode
+node_modules
+vendor
+storage/logs
+storage/framework/cache/data
+storage/framework/sessions
+storage/framework/views
+bootstrap/cache/*.php
+.env
+.env.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+mcp-database
+mcp-laradocs
