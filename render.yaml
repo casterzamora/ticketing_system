@@ -49,6 +49,8 @@ services:
         value: file
       - key: QUEUE_CONNECTION
         value: sync
+      - key: AUTO_SEED
+        value: "false"
       - key: PAYMONGO_BASE_URL
         value: https://api.paymongo.com/v1
       - key: PAYMONGO_VERIFY_SSL
