@@ -48,15 +48,16 @@ EXPOSE 10000
 
 # Bootstrap env safely on Render, then start the app.
 CMD sh -lc ' \
-    export DB_URL="${DB_URL:-${DATABASE_URL:-}}"; \
-    export DB_HOST="${DB_HOST:-${MYSQLHOST:-}}"; \
-    export DB_PORT="${DB_PORT:-${MYSQLPORT:-3306}}"; \
-    export DB_DATABASE="${DB_DATABASE:-${MYSQLDATABASE:-}}"; \
-    export DB_USERNAME="${DB_USERNAME:-${MYSQLUSER:-}}"; \
-    export DB_PASSWORD="${DB_PASSWORD:-${MYSQLPASSWORD:-}}"; \
-    export SESSION_DRIVER="${SESSION_DRIVER:-file}"; \
-    export CACHE_STORE="${CACHE_STORE:-file}"; \
-    export LOG_CHANNEL="${LOG_CHANNEL:-stderr}"; \
+    if [ -n "${DATABASE_URL:-}" ] && [ -z "${DB_URL:-}" ]; then export DB_URL="$DATABASE_URL"; fi; \
+    if [ -n "${MYSQLHOST:-}" ]; then export DB_HOST="$MYSQLHOST"; fi; \
+    if [ -n "${MYSQLPORT:-}" ]; then export DB_PORT="$MYSQLPORT"; fi; \
+    if [ -n "${MYSQLDATABASE:-}" ]; then export DB_DATABASE="$MYSQLDATABASE"; fi; \
+    if [ -n "${MYSQLUSER:-}" ]; then export DB_USERNAME="$MYSQLUSER"; fi; \
+    if [ -n "${MYSQLPASSWORD:-}" ]; then export DB_PASSWORD="$MYSQLPASSWORD"; fi; \
+    if [ "${APP_URL:-}" = "http://127.0.0.1:8000" ] || [ "${APP_URL:-}" = "http://localhost:8000" ]; then export APP_URL="https://${RENDER_EXTERNAL_HOSTNAME:-livetix-web.onrender.com}"; fi; \
+    export SESSION_DRIVER="file"; \
+    export CACHE_STORE="file"; \
+    export LOG_CHANNEL="stderr"; \
     if [ -z "${APP_KEY:-}" ]; then export APP_KEY="$(php artisan key:generate --show --no-interaction)"; fi; \
     php artisan config:clear; \
     php artisan config:cache; \
