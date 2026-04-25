@@ -61,7 +61,7 @@ const AdminRefunds = () => {
                             </p>
                         </div>
                         <h1 className="admin-title">
-                            Refunds <span className="text-zinc-600">.</span>
+                            Refunds<span className="text-zinc-600">.</span>
                         </h1>
                     </div>
                 </header>
