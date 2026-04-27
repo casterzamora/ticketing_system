@@ -3,7 +3,19 @@ set -e
 
 if [ -n "${DATABASE_URL}" ]; then
     export DB_CONNECTION=pgsql
-    export DB_URL="$DATABASE_URL"
+    # Parse individual components so Laravel never runs URL parsing on the Supabase
+    # username (postgres.PROJECTREF) — the dot causes "Tenant or user not found" via PgBouncer.
+    _u="${DATABASE_URL#postgresql://}"
+    _u="${_u#postgres://}"
+    export DB_USERNAME="${_u%%:*}"
+    _u="${_u#*:}"
+    export DB_PASSWORD="${_u%%@*}"
+    _u="${_u#*@}"
+    export DB_HOST="${_u%%:*}"
+    _u="${_u#*:}"
+    export DB_PORT="${_u%%/*}"
+    _db="${_u#*/}"
+    export DB_DATABASE="${_db%%\?*}"
 fi
 
 export SESSION_DRIVER="${SESSION_DRIVER:-file}"
