@@ -23,7 +23,11 @@ export CACHE_STORE="${CACHE_STORE:-file}"
 export LOG_CHANNEL="${LOG_CHANNEL:-stderr}"
 
 php artisan config:clear
-php artisan migrate --force --graceful || true
+php artisan cache:clear || true
+php artisan view:clear || true
+php artisan route:clear || true
+php artisan migrate --force || true
+php artisan storage:link --force || true
 
 if [ "${AUTO_SEED}" = "true" ]; then
     php artisan db:seed --force || true

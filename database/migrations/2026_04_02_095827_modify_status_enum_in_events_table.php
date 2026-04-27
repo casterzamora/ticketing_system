@@ -11,16 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // For MySQL/MariaDB, we use a raw statement to modify the ENUM
-        \Illuminate\Support\Facades\DB::statement("ALTER TABLE events MODIFY COLUMN status ENUM('draft', 'published', 'cancelled', 'completed', 'rescheduled') DEFAULT 'draft'");
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'mysql') {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE events MODIFY COLUMN status ENUM('draft', 'published', 'cancelled', 'completed', 'rescheduled') DEFAULT 'draft'");
+        } else {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_status_check");
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE events ADD CONSTRAINT events_status_check CHECK (status IN ('draft', 'published', 'cancelled', 'completed', 'rescheduled'))");
+        }
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        // Revert back
-        \Illuminate\Support\Facades\DB::statement("ALTER TABLE events MODIFY COLUMN status ENUM('draft', 'published', 'cancelled', 'completed') DEFAULT 'draft'");
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'mysql') {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE events MODIFY COLUMN status ENUM('draft', 'published', 'cancelled', 'completed') DEFAULT 'draft'");
+        } else {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_status_check");
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE events ADD CONSTRAINT events_status_check CHECK (status IN ('draft', 'published', 'cancelled', 'completed'))");
+        }
     }
 };
