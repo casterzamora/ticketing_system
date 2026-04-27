@@ -11,6 +11,26 @@ use Illuminate\Support\Str;
 
 class PayMongoService
 {
+    private function makeClient()
+    {
+        $verifySsl = filter_var(config('services.paymongo.verify_ssl', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+        $verifySsl = $verifySsl ?? true;
+
+        $verifyOption = true;
+        if (!$verifySsl) {
+            $verifyOption = false;
+        } else {
+            $caBundlePath = (string) config('services.paymongo.ca_bundle', '');
+            if ($caBundlePath !== '' && file_exists($caBundlePath)) {
+                $verifyOption = $caBundlePath;
+            }
+        }
+
+        return Http::withOptions([
+            'verify' => $verifyOption,
+        ])->retry(2, 500)->connectTimeout(10)->timeout(25);
+    }
+
     public function isConfigured(): bool
     {
         return !empty(config('services.paymongo.secret_key'));
@@ -20,8 +40,6 @@ class PayMongoService
     {
         $secret = (string) config('services.paymongo.secret_key');
         $baseUrl = rtrim((string) config('services.paymongo.base_url', 'https://api.paymongo.com/v1'), '/');
-        $verifySsl = filter_var(config('services.paymongo.verify_ssl', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
-        $verifySsl = $verifySsl ?? true;
         $appUrl = rtrim((string) config('app.url'), '/');
         $requestHostUrl = null;
 
@@ -68,9 +86,7 @@ class PayMongoService
             ],
         ];
 
-        $response = Http::withOptions([
-            'verify' => $verifySsl,
-        ])->retry(2, 500)->connectTimeout(10)->timeout(25)->withHeaders([
+        $response = $this->makeClient()->withHeaders([
             'Authorization' => 'Basic ' . base64_encode($secret . ':'),
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
@@ -126,9 +142,6 @@ class PayMongoService
 
         $secret = (string) config('services.paymongo.secret_key');
         $baseUrl = rtrim((string) config('services.paymongo.base_url', 'https://api.paymongo.com/v1'), '/');
-        $verifySsl = filter_var(config('services.paymongo.verify_ssl', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
-        $verifySsl = $verifySsl ?? true;
-
         if (empty($secret)) {
             throw new \RuntimeException('PayMongo secret key is not configured.');
         }
@@ -143,9 +156,7 @@ class PayMongoService
             ],
         ];
 
-        $response = Http::withOptions([
-            'verify' => $verifySsl,
-        ])->retry(2, 500)->connectTimeout(10)->timeout(25)->withHeaders([
+        $response = $this->makeClient()->withHeaders([
             'Authorization' => 'Basic ' . base64_encode($secret . ':'),
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
@@ -188,16 +199,11 @@ class PayMongoService
 
         $secret = (string) config('services.paymongo.secret_key');
         $baseUrl = rtrim((string) config('services.paymongo.base_url', 'https://api.paymongo.com/v1'), '/');
-        $verifySsl = filter_var(config('services.paymongo.verify_ssl', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
-        $verifySsl = $verifySsl ?? true;
-
         if (empty($secret)) {
             return null;
         }
 
-        $response = Http::withOptions([
-            'verify' => $verifySsl,
-        ])->retry(2, 500)->connectTimeout(10)->timeout(25)->withHeaders([
+        $response = $this->makeClient()->withHeaders([
             'Authorization' => 'Basic ' . base64_encode($secret . ':'),
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
@@ -375,8 +381,6 @@ class PayMongoService
 
         $secret = (string) config('services.paymongo.secret_key');
         $baseUrl = rtrim((string) config('services.paymongo.base_url', 'https://api.paymongo.com/v1'), '/');
-        $verifySsl = filter_var(config('services.paymongo.verify_ssl', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
-        $verifySsl = $verifySsl ?? true;
 
         if (empty($secret)) {
             return [
@@ -385,9 +389,7 @@ class PayMongoService
             ];
         }
 
-        $response = Http::withOptions([
-            'verify' => $verifySsl,
-        ])->retry(2, 500)->connectTimeout(10)->timeout(25)->withHeaders([
+        $response = $this->makeClient()->withHeaders([
             'Authorization' => 'Basic ' . base64_encode($secret . ':'),
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
@@ -430,9 +432,7 @@ class PayMongoService
 
         foreach ($paymentIntentIds as $paymentIntentId) {
             try {
-                $intentResponse = Http::withOptions([
-                    'verify' => $verifySsl,
-                ])->retry(2, 500)->connectTimeout(10)->timeout(25)->withHeaders([
+                $intentResponse = $this->makeClient()->withHeaders([
                     'Authorization' => 'Basic ' . base64_encode($secret . ':'),
                     'Accept' => 'application/json',
                     'Content-Type' => 'application/json',
@@ -459,9 +459,7 @@ class PayMongoService
 
         foreach ($paymentIds as $paymentId) {
             try {
-                $paymentResponse = Http::withOptions([
-                    'verify' => $verifySsl,
-                ])->retry(2, 500)->connectTimeout(10)->timeout(25)->withHeaders([
+                $paymentResponse = $this->makeClient()->withHeaders([
                     'Authorization' => 'Basic ' . base64_encode($secret . ':'),
                     'Accept' => 'application/json',
                     'Content-Type' => 'application/json',

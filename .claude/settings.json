@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "lara-db": {
+      "command": "node",
+      "args": ["C:\\Users\\elina\\ticketing_system\\mcp-database\\index.js"],
+      "env": {
+        "DB_HOST": "127.0.0.1",
+        "DB_USERNAME": "root",
+        "DB_PASSWORD": "",
+        "DB_DATABASE": "laravel",
+        "DB_PORT": "3306"
+      }
+    },
+    "lara-docs": {
+      "command": "node",
+      "args": ["C:\\Users\\elina\\ticketing_system\\mcp-laradocs\\index.js"]
+    }
+  }
+}

@@ -48,18 +48,6 @@ RUN npm run build
 
 EXPOSE 10000
 
-# Standard Laravel production entrypoint for Render (Supabase/Postgres)
-CMD sh -lc ' \
-    if [ -n "${DATABASE_URL:-}" ]; then \
-        export DB_CONNECTION=pgsql; \
-        # Extract components from DATABASE_URL (postgres://user:pass@host:port/db) \
-        # This is a robust way to handle the Supabase connection string \
-        export DB_URL="$DATABASE_URL"; \
-    fi; \
-    export SESSION_DRIVER="${SESSION_DRIVER:-file}"; \
-    export CACHE_STORE="${CACHE_STORE:-file}"; \
-    export LOG_CHANNEL="${LOG_CHANNEL:-stderr}"; \
-    php artisan config:clear; \
-    php artisan migrate --force --graceful || true; \
-    php artisan serve --host=0.0.0.0 --port=${PORT:-10000} \
-'
+RUN chmod +x docker-entrypoint.sh
+
+CMD ["sh", "docker-entrypoint.sh"]
