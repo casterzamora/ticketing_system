@@ -56,6 +56,8 @@ class BookingController extends Controller
      */
     public function index(PayMongoService $payMongoService)
     {
+        BookingService::cleanupExpiredBookings();
+
         $bookings = Auth::user()->bookings()
             ->with(['event', 'bookingTickets.ticketType', 'refundRequest', 'payments', 'tickets'])
             ->latest()
@@ -131,9 +133,19 @@ class BookingController extends Controller
             'tickets.*' => 'required|integer|min:1|max:10',
         ]);
 
-        // Check if user already has booking for this event
+        BookingService::cleanupExpiredBookings();
+
+        // Check if user already has an active (non-cancelled, non-expired) booking for this event.
+        // Confirmed/awaiting bookings pass regardless of expires_at; only pending bookings are
+        // excluded once their checkout window has elapsed.
         $existingBooking = Booking::where('user_id', Auth::id())
             ->where('event_id', $validated['event_id'])
+            ->where('status', '!=', 'cancelled')
+            ->where(function ($q) {
+                $q->where('status', '!=', 'pending')
+                  ->orWhereNull('expires_at')
+                  ->orWhere('expires_at', '>', now());
+            })
             ->first();
 
         if ($existingBooking) {

@@ -14,7 +14,7 @@ class SystemSettingsService
         'reschedule_refund_window_hours' => 72,
         'scanner_duplicate_window_seconds' => 5,
         'inventory_low_stock_threshold_pct' => self::FIXED_LOW_STOCK_THRESHOLD_PCT,
-        'payment_provider_mode' => 'sandbox',
+        'payment_provider_mode' => 'paymongo',
     ];
 
     public static function fixedLowStockThresholdPct(): int

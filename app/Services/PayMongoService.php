@@ -73,7 +73,7 @@ class PayMongoService
                             'quantity' => 1,
                         ],
                     ],
-                    'payment_method_types' => ['gcash', 'paymaya', 'card'],
+                    'payment_method_types' => ['gcash', 'maya', 'card'],
                     'description' => 'Ticket booking payment for ' . $booking->booking_reference,
                     'success_url' => $successUrl,
                     'cancel_url' => $cancelUrl,
