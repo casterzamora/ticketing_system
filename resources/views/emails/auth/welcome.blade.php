@@ -1,12 +1,14 @@
 <x-mail::message>
-# Introduction
+# Welcome to {{ config('app.name') }}, {{ $userName }}!
 
-The body of your message.
+Your account has been created successfully. You can now browse events, book tickets, and manage your reservations.
 
-<x-mail::button :url="''">
-Button Text
+<x-mail::button :url="$appUrl">
+Browse Events
 </x-mail::button>
 
-Thanks,<br>
-{{ config('app.name') }}
+If you have any questions, feel free to reach out.
+
+Thanks,
+**{{ config('app.name') }} Team**
 </x-mail::message>

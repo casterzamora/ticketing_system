@@ -337,9 +337,9 @@ class BookingService
                 
                 RefundPolicyService::releaseInventoryForBooking($booking);
                 
-                $booking->update(['status' => 'cancelled']);
-                
-                \App\Services\ActivityLogService::log('expired', $booking, "System auto-cancelled expired booking {$booking->booking_reference}");
+                $booking->update(['status' => 'expired']);
+
+                \App\Services\ActivityLogService::log('expired', $booking, "System auto-expired booking {$booking->booking_reference}");
                 
                 DB::commit();
                 $count++;

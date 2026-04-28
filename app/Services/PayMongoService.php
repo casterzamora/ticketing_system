@@ -62,7 +62,7 @@ class PayMongoService
         $payload = [
             'data' => [
                 'attributes' => [
-                    'send_email_receipt' => true,
+                    'send_email_receipt' => false,
                     'show_description' => true,
                     'show_line_items' => true,
                     'line_items' => [

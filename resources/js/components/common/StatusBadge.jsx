@@ -4,6 +4,7 @@ const STATUS_COLORS = {
     pending: 'bg-yellow-500/20 text-yellow-300 border-yellow-600',
     confirmed: 'bg-green-500/20 text-green-300 border-green-600',
     cancelled: 'bg-gray-500/20 text-gray-400 border-gray-600',
+    expired: 'bg-red-500/10 text-red-400 border-red-600/40',
     refunded: 'bg-blue-500/20 text-blue-300 border-blue-600',
     approved: 'bg-green-500/20 text-green-300 border-green-600',
     rejected: 'bg-red-500/20 text-red-300 border-red-600',

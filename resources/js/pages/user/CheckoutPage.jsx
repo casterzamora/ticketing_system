@@ -162,15 +162,20 @@ const CheckoutPage = () => {
         );
     }
 
-    if (booking.status === 'pending' && timeLeft !== null && timeLeft <= 0) {
+    const isExpired =
+        booking.status === 'expired' ||
+        (booking.status === 'cancelled' && booking.expires_at && new Date(booking.expires_at) < new Date()) ||
+        (booking.status === 'pending' && timeLeft !== null && timeLeft <= 0);
+
+    if (isExpired) {
         return (
             <div className='min-h-screen flex items-center justify-center px-6'>
                 <div className='max-w-md w-full text-center space-y-6'>
                     <div className='w-20 h-20 bg-red-500/20 rounded-full border border-red-500/40 flex items-center justify-center mx-auto'>
                         <span className='text-3xl text-red-400 font-bold'>!</span>
                     </div>
-                    <h1 className='text-3xl font-display font-black text-white uppercase tracking-tight'>Checkout Expired</h1>
-                    <p className='text-zinc-400 text-sm'>The reservation window has ended for this booking. Please create a new booking to continue.</p>
+                    <h1 className='text-3xl font-display font-black text-white uppercase tracking-tight'>Session Expired</h1>
+                    <p className='text-zinc-400 text-sm'>Your reservation window has ended. Please go back and create a new booking to continue.</p>
                     <div className='space-y-3'>
                         <button
                             onClick={() => navigate('/events')}

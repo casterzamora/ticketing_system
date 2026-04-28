@@ -140,7 +140,7 @@ class BookingController extends Controller
         // excluded once their checkout window has elapsed.
         $existingBooking = Booking::where('user_id', Auth::id())
             ->where('event_id', $validated['event_id'])
-            ->where('status', '!=', 'cancelled')
+            ->whereNotIn('status', ['cancelled', 'expired'])
             ->where(function ($q) {
                 $q->where('status', '!=', 'pending')
                   ->orWhereNull('expires_at')

@@ -44,9 +44,9 @@ services:
       - key: MAIL_HOST
         value: in-v3.mailjet.com
       - key: MAIL_PORT
-        value: "587"
+        value: "465"
       - key: MAIL_SCHEME
-        value: ""
+        value: smtps
       - key: MAIL_USERNAME
         sync: false
       - key: MAIL_PASSWORD

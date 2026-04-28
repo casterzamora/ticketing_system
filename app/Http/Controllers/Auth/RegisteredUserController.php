@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Mail\User\RegistrationWelcomeMail;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
@@ -51,6 +54,15 @@ class RegisteredUserController extends Controller
         $user->assignRole('customer');
 
         event(new Registered($user));
+
+        try {
+            Mail::to($user->email)->send(new RegistrationWelcomeMail(
+                userName: $user->name,
+                appUrl: rtrim(config('app.url'), '/') . '/events',
+            ));
+        } catch (\Throwable $e) {
+            Log::warning('Welcome email failed for user ' . $user->id . ': ' . $e->getMessage());
+        }
 
         Auth::login($user);
 
